@@ -50,7 +50,11 @@ static FFont *FCTX_Font;
 static struct tm prv_tick_time;
 static int s_battery_level;
 static int s_connected;
-static char s_time_text[12], s_ampm_text[6], s_date_text[20], s_batt_text[8], s_logo_text[16];
+static char s_time_text[12], s_ampm_text[6], s_date_text[20], s_batt_text[8];
+// Custom text lives outside ClaySettings (its own persist key) so the longer
+// text doesn't eat into the 256-byte settings budget.
+static char s_logo_text[LOGO_TEXT_BYTES] = "HYBRID";        // bottom-left custom text
+static char s_logo_text_right[LOGO_TEXT_BYTES] = "HYBRID";  // bottom-right custom text
 static int s_month;
 static int s_day;
 static int s_weekday;
@@ -454,8 +458,6 @@ static void update_cached_strings() {
         fetchwday(prv_tick_time.tm_wday, date_locale(), weekdaydraw);
         snprintf(s_date_text, sizeof(s_date_text), "%s %d", weekdaydraw, prv_tick_time.tm_mday);
     }
-    // 3. Logo text
-    snprintf(s_logo_text, sizeof(s_logo_text), "%s", settings.LogoText);
 }
 
 
@@ -631,6 +633,56 @@ static void draw_btqt_icons(GContext *ctx, GRect bounds) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Fitting slot text inside the foreground shape
+// ---------------------------------------------------------------------------
+#define SLOT_TEXT_MARGIN 1   // px kept clear of the outline's inner edge (outline is 2px, centred on the edge)
+
+// Half-width of the foreground shape (circle, or rounded rect on rectangular
+// watches) at vertical distance dy from the screen centre.
+static int fg_half_width_at(int dy) {
+  if (dy < 0) dy = -dy;
+  #ifndef PBL_ROUND
+  if (!settings.ForegroundShape) {
+    int half_w = config.foregroundrect_w / 2;
+    int half_h = config.foregroundrect_h / 2;
+    int cr = config.corner_radius_foreground;
+    if (dy >= half_h) return 0;
+    int straight = half_h - cr;              // end of the straight sides
+    if (dy <= straight) return half_w;
+    int ey = dy - straight;                  // distance into the corner arc
+    return half_w - cr + (int)isqrt((uint32_t)(cr * cr - ey * ey));
+  }
+  #endif
+  int r = config.fg_radius;
+  if (dy >= r) return 0;
+  return (int)isqrt((uint32_t)(r * r - dy * dy));
+}
+
+// Width available to a slot whose text spans rows top_y..bottom_y.
+// inner_x is the distance from the centre line to the text's inner edge;
+// the text grows outwards from there.
+static int slot_available_width(GRect bounds, int top_y, int bottom_y, int inner_x) {
+  int cy = bounds.size.h / 2;
+  int dy_top = top_y - cy, dy_bot = bottom_y - cy;
+  if (dy_top < 0) dy_top = -dy_top;
+  if (dy_bot < 0) dy_bot = -dy_bot;
+  int dy = dy_top > dy_bot ? dy_top : dy_bot; // whichever edge is narrower
+  int w = fg_half_width_at(dy) - inner_x - SLOT_TEXT_MARGIN;
+  return w > 0 ? w : 0;
+}
+
+// Remove the last character, keeping multi-byte UTF-8 characters whole.
+static void utf8_drop_last(char *str) {
+  size_t n = strlen(str);
+  while (n > 0) {
+    n--;
+    if (((unsigned char)str[n] & 0xC0) != 0x80) break;
+  }
+  str[n] = '\0';
+  while (n > 0 && str[n - 1] == ' ') { str[--n] = '\0'; } // no trailing spaces
+}
+
 // Battery icon (dripicons-v2), right-aligned to the same edge as the
 // bottom-left text. Glyph follows charge: t = empty (<=10%), v = low (11-49%),
 // w = medium (50-89%), u = full (90-100%). top_y is where the text's top sits; BATT_ICON_Y_NUDGE
@@ -755,6 +807,8 @@ static void draw_center(GContext *ctx, GColor seconds_color, GColor fg_color) {
 
 static void prv_save_settings(void) {
   persist_write_data(SETTINGS_KEY, &settings, sizeof(settings));
+  persist_write_string(LOGO_TEXT_KEY, s_logo_text);
+  persist_write_string(LOGO_TEXT_RIGHT_KEY, s_logo_text_right);
 }
 
 static void prv_default_settings(void) {
@@ -815,6 +869,12 @@ static void prv_default_settings(void) {
 
 static void prv_load_settings(void) {
   prv_default_settings();
+  if (persist_exists(LOGO_TEXT_KEY)) {
+    persist_read_string(LOGO_TEXT_KEY, s_logo_text, sizeof(s_logo_text));
+  }
+  if (persist_exists(LOGO_TEXT_RIGHT_KEY)) {
+    persist_read_string(LOGO_TEXT_RIGHT_KEY, s_logo_text_right, sizeof(s_logo_text_right));
+  }
   int stored_size = persist_get_size(SETTINGS_KEY);
   if (stored_size == (int)sizeof(settings)) {
     persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
@@ -1155,6 +1215,12 @@ static int tuple_int(const Tuple *t) {
   return (t->type == TUPLE_CSTRING) ? atoi(t->value->cstring) : (int)t->value->int32;
 }
 
+// Custom text from the config page; blank falls back to "HYBRID".
+static void store_logo_text(char *dest, size_t size, const Tuple *t) {
+  const char *val = (t->type == TUPLE_CSTRING) ? t->value->cstring : "";
+  snprintf(dest, size, "%s", val[0] ? val : "HYBRID");
+}
+
 static uint8_t slot_from_tuple(const Tuple *t, uint8_t fallback) {
   int v = tuple_int(t);
   return (v >= 0 && v < SLOT_COUNT) ? (uint8_t)v : fallback;
@@ -1182,6 +1248,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   Tuple *datelang_t           = dict_find(iter, MESSAGE_KEY_DateLanguage);
   Tuple *healthlogoweather_t  = dict_find(iter, MESSAGE_KEY_HealthLogoWeather);
   Tuple *logotext_t           = dict_find(iter, MESSAGE_KEY_LogoText);
+  Tuple *logotext_right_t     = dict_find(iter, MESSAGE_KEY_LogoTextRight);
   Tuple *bwthemeselect_t      = dict_find(iter, MESSAGE_KEY_BWThemeSelect);
   Tuple *themeselect_t        = dict_find(iter, MESSAGE_KEY_ThemeSelect);
   int bw_theme = bwthemeselect_t ? tuple_int(bwthemeselect_t) : -1;
@@ -1325,13 +1392,13 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
     settings_changed = true;
   }
 
-  // Custom text: kept up to date whenever it's sent, whichever slot shows it
+  // Custom texts (one per bottom slot), kept up to date whenever they're sent
   if (logotext_t) {
-    if (strlen(logotext_t->value->cstring) > 0) {
-      snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", logotext_t->value->cstring);
-    } else {
-      snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", "HYBRID");
-    }
+    store_logo_text(s_logo_text, sizeof(s_logo_text), logotext_t);
+    settings_changed = true;
+  }
+  if (logotext_right_t) {
+    store_logo_text(s_logo_text_right, sizeof(s_logo_text_right), logotext_right_t);
     settings_changed = true;
   }
 
@@ -2295,20 +2362,20 @@ static void weather2_update_proc(Layer *layer, GContext *ctx) {
                     uint16_t inset_thickness_now_r = 8;
                     graphics_fill_radial(ctx,Rain_arc_bounds_now,GOvalScaleModeFitCircle,inset_thickness_now_r,angle_start_now_r,angle_end_now_r);
 
+                    // Rain amounts arrive in tenths (12 = 1.2 mm or in).
+                    // Under 1: one decimal place ("0.4"); 1 or more: rounded whole number.
                     char RainValueToDraw [9];
-                    if (s_rainday_level<10){
-                    snprintf(RainValueToDraw, sizeof(RainValueToDraw), "%d.%d", s_rainday_level / 10, (s_rainday_level % 10/10));
-                    }
-                    else{
-                     snprintf(RainValueToDraw, sizeof(RainValueToDraw), "%d", s_rainday_level / 10);  
+                    if (s_rainday_level < 10) {
+                      snprintf(RainValueToDraw, sizeof(RainValueToDraw), "%d.%d", s_rainday_level / 10, s_rainday_level % 10);
+                    } else {
+                      snprintf(RainValueToDraw, sizeof(RainValueToDraw), "%d", (s_rainday_level + 5) / 10);
                     }
 
                     char Rain1hToDraw [9];
-                    if (s_rain1h_level<10){
-                    snprintf(Rain1hToDraw, sizeof(Rain1hToDraw), "%d.%d", s_rain1h_level / 10, (s_rainday_level % 10/10));
-                    }
-                    else{
-                     snprintf(Rain1hToDraw, sizeof(Rain1hToDraw), "%d", s_rain1h_level / 10);  
+                    if (s_rain1h_level < 10) {
+                      snprintf(Rain1hToDraw, sizeof(Rain1hToDraw), "%d.%d", s_rain1h_level / 10, s_rain1h_level % 10);
+                    } else {
+                      snprintf(Rain1hToDraw, sizeof(Rain1hToDraw), "%d", (s_rain1h_level + 5) / 10);
                     }
 
                       graphics_context_set_text_color(ctx,settings.TextColor1);
@@ -2360,7 +2427,7 @@ static void fctx_draw_slot(FContext *fctx, GRect bounds, uint8_t slot, bool righ
   if (slot == SLOT_STEPS) {
     if (settings.HealthOn) { text = s_current_steps_buffer; }
   } else if (slot == SLOT_TEXT) {
-    text = settings.LogoText;
+    text = right ? s_logo_text_right : s_logo_text;
   } else if (slot == SLOT_TEMP) {
     if (settings.UseWeather) { text = settings.tempstring; em = config.info_font_size; }
   }
@@ -2369,8 +2436,19 @@ static void fctx_draw_slot(FContext *fctx, GRect bounds, uint8_t slot, bool righ
   fctx_begin_fill(fctx);
   fctx_set_fill_color(fctx, settings.TextColor1);
   fctx_set_text_em_height(fctx, FCTX_Font, em);
+
+  // Clip characters off the end until the text fits inside the foreground.
+  // Glyphs sit in roughly the top 3/4 of the em box (FTextAnchorTop).
+  int top = bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent;
+  fixed_t avail = INT_TO_FIXED(slot_available_width(bounds, top, top + em * 3 / 4, config.xOffset));
+  char clipped[LOGO_TEXT_BYTES];
+  snprintf(clipped, sizeof(clipped), "%s", text);
+  while (clipped[0] && fctx_string_width(fctx, clipped, FCTX_Font) > avail) {
+    utf8_drop_last(clipped);
+  }
+
   fctx_set_offset(fctx, (FPoint){ anchor_x, text_y });
-  fctx_draw_string(fctx, text, FCTX_Font, align, FTextAnchorTop);
+  fctx_draw_string(fctx, clipped, FCTX_Font, align, FTextAnchorTop);
   fctx_end_fill(fctx);
 }
 
@@ -2603,17 +2681,38 @@ static void draw_slot_system(GContext *ctx, GRect bounds, uint8_t slot, bool rig
     if (settings.HealthOn) { text = s_current_steps_buffer; }
     #endif
   } else if (slot == SLOT_TEXT) {
-    text = settings.LogoText;
+    text = right ? s_logo_text_right : s_logo_text;
   } else if (slot == SLOT_TEMP) {
     if (settings.UseWeather) { text = settings.tempstring; }
   }
   if (!text || !text[0]) { return; }
 
-  int text_y = cy + config.other_text_font_size + config.yOffsetPercent - 4;
+  // Current temperature uses the same font and row as the battery value;
+  // other text uses the small font on the custom-text row.
+  bool is_temp = slot == SLOT_TEMP;
+  GFont font = is_temp ? medium_font : small_font;
+  int text_y = is_temp ? cy + config.other_text_font_size + config.yOffsetBattery - 8
+                       : cy + config.other_text_font_size + config.yOffsetPercent - 4;
+
+  // Clip characters off the end until the text fits inside the foreground.
+  char clipped[LOGO_TEXT_BYTES];
+  snprintf(clipped, sizeof(clipped), "%s", text);
+  GRect measure_box = GRect(0, 0, bounds.size.w, 60);
+  GSize size = graphics_text_layout_get_content_size(clipped, font, measure_box,
+                                                     GTextOverflowModeFill, GTextAlignmentLeft);
+  // System-font slots are drawn from cx -/+ (xOffset - 1), see rect below
+  int avail = slot_available_width(bounds, text_y, text_y + size.h, config.xOffset - 1);
+  while (clipped[0] && size.w > avail) {
+    utf8_drop_last(clipped);
+    size = graphics_text_layout_get_content_size(clipped, font, measure_box,
+                                                 GTextOverflowModeFill, GTextAlignmentLeft);
+  }
+
+  int rect_h = size.h + 4;
   GRect rect = right
-    ? GRect(cx + config.xOffset - 1, text_y, bounds.size.w - (cx + config.xOffset - 1), 16)
-    : GRect(0, text_y, cx - config.xOffset + 1, 16);
-  graphics_draw_text(ctx, text, small_font, rect, GTextOverflowModeWordWrap,
+    ? GRect(cx + config.xOffset - 1, text_y, bounds.size.w - (cx + config.xOffset - 1), rect_h)
+    : GRect(0, text_y, cx - config.xOffset + 1, rect_h);
+  graphics_draw_text(ctx, clipped, font, rect, GTextOverflowModeFill,
                      right ? GTextAlignmentLeft : GTextAlignmentRight, NULL);
 }
 

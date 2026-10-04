@@ -1,7 +1,7 @@
 {
   "name": "HybridWeather",
   "author": "astosia",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "keywords": [
     "analog",
     "analogue",
@@ -125,7 +125,8 @@
       "BottomRight",
       "TopRow",
       "ShakeWeather",
-      "DateLanguage"
+      "DateLanguage",
+      "LogoTextRight"
     ],
     "resources": {
       "media": [

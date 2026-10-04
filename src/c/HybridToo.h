@@ -2,6 +2,17 @@
 #include <pebble.h>
 
 #define SETTINGS_KEY 1115
+#define LOGO_TEXT_KEY 1116        // custom texts are stored separately from ClaySettings
+#define LOGO_TEXT_RIGHT_KEY 1117
+
+// Longest custom text accepted (characters beyond what fits are clipped on screen)
+#ifdef PBL_PLATFORM_APLITE
+  #define LOGO_TEXT_MAX 6
+#else
+  #define LOGO_TEXT_MAX 25
+#endif
+// Buffer size in bytes: accented letters take 2 bytes in UTF-8
+#define LOGO_TEXT_BYTES (LOGO_TEXT_MAX * 2 + 1)
 
 // Dropdown values sent from the config page (as "0", "1", ...)
 typedef enum {
@@ -20,7 +31,6 @@ typedef struct ClaySettings {
   bool EnableDate;
   bool EnableBatteryLine;
   bool EnableLogo;
-  char LogoText[7];
   uint8_t VibeMode;   // 0 = respect Quiet Time, 1 = always, 2 = never
   int Font;
   uint8_t HealthLogoWeather;   // bottom-left slot, SlotOption

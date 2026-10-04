@@ -165,11 +165,57 @@
         "type": "input",
         "messageKey": "LogoText",
         "defaultValue": "HYBRID",
-        "label": "Custom Text",
-        "description": "Maximum 6 characters (letters, numbers or .,:% only), shows if Custom Text is selected above",
+        "label": "Custom Text (bottom left)",
+        "description": "Maximum 6 characters (letters, numbers or .,:% only), shows if Custom Text is selected for the bottom left",
         "attributes": {
-          "placeholder": "HYBRID"
-        }
+          "placeholder": "HYBRID",
+          "maxlength": 6
+        },
+        "capabilities": [
+          "PLATFORM_APLITE"
+        ]
+      },
+      {
+        "type": "input",
+        "messageKey": "LogoText",
+        "defaultValue": "HYBRID",
+        "label": "Custom Text (bottom left)",
+        "description": "Letters, numbers or .,:% only, shows if Custom Text is selected for the bottom left. Anything that doesn't fit is clipped",
+        "attributes": {
+          "placeholder": "HYBRID",
+          "maxlength": 25
+        },
+        "capabilities": [
+          "NOT_PLATFORM_APLITE"
+        ]
+      },
+      {
+        "type": "input",
+        "messageKey": "LogoTextRight",
+        "defaultValue": "HYBRID",
+        "label": "Custom Text (bottom right)",
+        "description": "Maximum 6 characters (letters, numbers or .,:% only), shows if Custom Text is selected for the bottom right",
+        "attributes": {
+          "placeholder": "HYBRID",
+          "maxlength": 6
+        },
+        "capabilities": [
+          "PLATFORM_APLITE"
+        ]
+      },
+      {
+        "type": "input",
+        "messageKey": "LogoTextRight",
+        "defaultValue": "HYBRID",
+        "label": "Custom Text (bottom right)",
+        "description": "Letters, numbers or .,:% only, shows if Custom Text is selected for the bottom right. Anything that doesn't fit is clipped",
+        "attributes": {
+          "placeholder": "HYBRID",
+          "maxlength": 25
+        },
+        "capabilities": [
+          "NOT_PLATFORM_APLITE"
+        ]
       },
       {
         "type": "toggle",
@@ -287,7 +333,7 @@
         "defaultValue": true
       },
       {
-        "type": "radiogroup",
+        "type": "select",
         "messageKey": "ThemeSelect",
         "defaultValue": 0,
         "label": "COLOUR THEME SELECT",
@@ -437,7 +483,7 @@
         "defaultValue": "Colours"
       },
       {
-        "type": "radiogroup",
+        "type": "select",
         "messageKey": "BWThemeSelect",
         "defaultValue": 0,
         "label": "COLOUR THEME SELECT",

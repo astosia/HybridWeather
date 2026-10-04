@@ -826,7 +826,7 @@ function fetchWeather(lat, lon) {
         var rain1  = (r1raw !== null && r1raw !== undefined) ? r1raw : 0;
         var rainn60mm = Math.round((rain0 + rain1) / 2 * 10) / 10;
         var rainn60in = Math.round(rainn60mm / 25.4 * 10) / 10;
-        rain_owm = raintouse(rainunits, rainn60mm, rainn60in) * 10;
+        rain_owm = Math.round(raintouse(rainunits, rainn60mm, rainn60in) * 10);  // whole tenths
       } else {
         var minuteSum = 0;
         for (var m = 0; m < 60; m++) {
@@ -834,7 +834,7 @@ function fetchWeather(lat, lon) {
         }
         var rainn60mm = Math.round(minuteSum * 10) / 10;
         var rainn60in = Math.round(minuteSum / 25.4 * 10) / 10;
-        rain_owm = raintouse(rainunits, rainn60mm, rainn60in) * 10;
+        rain_owm = Math.round(raintouse(rainunits, rainn60mm, rainn60in) * 10);  // whole tenths
       }
 
       // Pressure – current from current block, trend vs 3 hours forward

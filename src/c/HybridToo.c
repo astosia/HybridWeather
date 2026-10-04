@@ -906,9 +906,8 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   #endif
   prv_tick_time = *tick_time;
 
-    update_cached_strings();
-    
   if (units_changed & MINUTE_UNIT) {
+    update_cached_strings();   // time/date text only changes once a minute
     if (s_countdown == 0){
       //Reset weather update countdown
       s_countdown = settings.UpSlider;
@@ -933,6 +932,21 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
       s_weekday = tick_time->tm_wday;
       s_month = tick_time->tm_mon;
     }
+
+    // Ask the phone for weather once per minute when the countdown hits 0
+    // (or 5, as a retry). Inside the minute block so it isn't sent every
+    // second while the seconds hand is ticking.
+    if (settings.UseWeather && (s_countdown == 0 || s_countdown == 5)) {
+      #ifdef DEBUG
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "countdown is %d, requesting weather at %d", s_countdown, tick_time->tm_min);
+      #endif
+      s_loop = 0;
+      DictionaryIterator *iter;
+      if (app_message_outbox_begin(&iter) == APP_MSG_OK) {
+        dict_write_uint8(iter, 0, 0);
+        app_message_outbox_send();
+      }
+    }
   }
 
   if (showSeconds && (units_changed & SECOND_UNIT)) {
@@ -941,19 +955,6 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 
   layer_set_hidden(s_canvas_second_hand, !(showSeconds && settings.EnableSecondsHand));
 
-  if (s_countdown == 0 || s_countdown == 5){
-    #ifdef DEBUG
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "countdown is 0, updated weather at %d", tick_time -> tm_min);
-    #endif
-      s_loop = 0;
-      // Begin dictionary
-      DictionaryIterator * iter;
-      app_message_outbox_begin( & iter);
-      // Add a key-value pair
-      dict_write_uint8(iter, 0, 0);
-      // Send the message!
-      app_message_outbox_send();
-  }
 
 }
 

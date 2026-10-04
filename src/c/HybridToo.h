@@ -3,19 +3,27 @@
 
 #define SETTINGS_KEY 1115
 
+// Dropdown values sent from the config page (as "0", "1", ...)
+typedef enum {
+  SLOT_STEPS = 0, SLOT_TEXT, SLOT_TEMP, SLOT_BATT_VALUE, SLOT_BATT_ICON, SLOT_NONE,
+  SLOT_COUNT
+} SlotOption;
+
+enum { TOPROW_DAY_MONTH = 0, TOPROW_MONTH_DAY, TOPROW_NONE };
+
+enum { THEME_WHITE = 0, THEME_BLACK, THEME_BLUE, THEME_PURPLE, THEME_GREEN, THEME_CUSTOM };
+enum { BW_THEME_WHITE = 0, BW_THEME_BLACK, BW_THEME_GREY, BW_THEME_CUSTOM };
+
 typedef struct ClaySettings {
   bool EnableSecondsHand;
   int SecondsVisibleTime;
   bool EnableDate;
-  bool EnableBattery;
   bool EnableBatteryLine;
   bool EnableLogo;
   char LogoText[7];
-  bool VibeOn;
+  uint8_t VibeMode;   // 0 = respect Quiet Time, 1 = always, 2 = never
   int Font;
-  char BWThemeSelect[4];
-  char ThemeSelect[4];
-  char HealthLogoWeather[4];
+  uint8_t HealthLogoWeather;   // bottom-left slot, SlotOption
   GColor BackgroundColor1;
   GColor ShadowColor;
   GColor TextColor1;
@@ -81,8 +89,11 @@ typedef struct ClaySettings {
   GColor UVNowColor;
   GColor UVArcColor;
   GColor WeatherColor;
+  GColor BTQTColor;
+  uint8_t BottomRight;         // bottom-right slot, SlotOption
+  bool SwapDayMonth;
+  char DateLanguage[6];         // "" = match watch, else e.g. "fr_FR"
+  bool ShakeWeather;
 } __attribute__((__packed__)) ClaySettings;
 
 _Static_assert(sizeof(ClaySettings) <= 256, "ClaySettings exceeds Pebble 256-byte persist limit!");
-
-

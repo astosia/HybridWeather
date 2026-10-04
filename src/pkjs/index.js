@@ -556,12 +556,12 @@ function locationError(err) {
 
 function fetchWeather(lat, lon) {
   var cfg         = JSON.parse(localStorage.getItem('clay-settings')) || {};
-  var weatherprov = cfg.WeatherProv;
+  var weatherprov = optionCode(cfg, 'WeatherProv');
   //var weatherprov = 'ds';
   var units       = unitsToString(cfg.WeatherUnit);
-  var windunits   = windunitsToString(cfg.WindUnit);
-  var rainunits   = rainunitsToString(cfg.RainUnit);
-  var pressureunits = pressureunitsToString(cfg.PressureUnit);
+  var windunits   = windunitsToString(optionCode(cfg, 'WindUnit'));
+  var rainunits   = rainunitsToString(optionCode(cfg, 'RainUnit'));
+  var pressureunits = pressureunitsToString(optionCode(cfg, 'PressureUnit'));
   var langtouse   = translate(navigator.language);
 
   // 1. Suncalc – computed locally, no XHR needed
@@ -1006,12 +1006,59 @@ function getinfo() {
 //   getinfo();
 // });
 
-//─── Updated Event listeners to ignore weather if UseWeather is off ───────────────
+// Weather is needed if current temperature is shown in either bottom slot,
+// or if the extra weather screens on shake are enabled.
+function weatherWanted(cfg) {
+  var TEMP = 2;  // "Current Temperature" in the bottom slot dropdowns
+  return Number(cfg.HealthLogoWeather) === TEMP || Number(cfg.BottomRight) === TEMP || !!cfg.ShakeWeather;
+}
+
+// ─── Numeric dropdown values ─────────────────────────────────────────────────
+// The config page sends dropdowns as numbers ("0", "1", ...). These lists give
+// the meaning of each number, in order, and must match config.json.
+var OPTION_CODES = {
+  HealthLogoWeather: ['st', 'tx', 'cf', 'bv', 'bi', 'no'],
+  BottomRight:       ['st', 'tx', 'cf', 'bv', 'bi', 'no'],
+  TopRow:            ['dm', 'md', 'no'],
+  ThemeSelect:       ['wh', 'bl', 'bu', 'pl', 'gr', 'cu'],
+  BWThemeSelect:     ['wh', 'bl', 'gy', 'cu'],
+  WeatherProv:       ['ds', 'owm'],
+  RainUnit:          ['mm', 'in'],
+  PressureUnit:      ['mb', 'hg', 'tor', 'ap', 'atm'],
+  WindUnit:          ['kts', 'mph', 'ms', 'kph']
+};
+
+// Number -> code for the phone-side weather code (e.g. WindUnit "0" -> 'kts').
+function optionCode(cfg, key) {
+  var list = OPTION_CODES[key];
+  var v = cfg[key];
+  var n = Number(v);
+  if (v !== undefined && v !== '' && !isNaN(n) && list[n] !== undefined) return list[n];
+  return v;  // already a code (or unset): leave as is
+}
+
+// One-off migration: settings saved by older versions hold letter codes.
+// Convert them to numbers so the config page shows the right selections.
+function migrateOptionCodes() {
+  var cfg = JSON.parse(localStorage.getItem('clay-settings')) || {};
+  var changed = false;
+  Object.keys(OPTION_CODES).forEach(function (key) {
+    var idx = OPTION_CODES[key].indexOf(cfg[key]);
+    if (idx !== -1) { cfg[key] = String(idx); changed = true; }
+  });
+  if (changed) {
+    localStorage.setItem('clay-settings', JSON.stringify(cfg));
+    console.log('Migrated letter-coded settings to numbers');
+  }
+}
+
+//─── Event listeners skip weather when nothing needs it ───────────────
 Pebble.addEventListener('ready', function(e) {
   console.log("Starting Watchface!");
   localStorage.setItem("OKAPI", 0);
+  migrateOptionCodes();
   var cfg = JSON.parse(localStorage.getItem('clay-settings')) || {};
-  if (cfg.UseWeather) {
+  if (weatherWanted(cfg)) {
     getinfo();
   }
 });
@@ -1019,7 +1066,7 @@ Pebble.addEventListener('ready', function(e) {
 Pebble.addEventListener('appmessage', function(e) {
   console.log("Requesting weather update!");
   var cfg = JSON.parse(localStorage.getItem('clay-settings')) || {};
-  if (cfg.UseWeather) {
+  if (weatherWanted(cfg)) {
     getinfo();
   }
 });
@@ -1029,7 +1076,7 @@ Pebble.addEventListener('webviewclosed', function(e) {
   // Config changed - force a fresh fetch even if guard is set.
   isFetching = false;
   var cfg = JSON.parse(localStorage.getItem('clay-settings')) || {};
-  if (cfg.UseWeather) {
+  if (weatherWanted(cfg)) {
     getinfo();
   }
 });

@@ -16,29 +16,149 @@
       },
       {
         "type": "select",
+        "messageKey": "TopRow",
+        "defaultValue": 0,
+        "label": "Top row front screen",
+        "options": [
+          {
+            "label": "Day - Date - Month",
+            "value": 0
+          },
+          {
+            "label": "Month - Date - Day",
+            "value": 1
+          },
+          {
+            "label": "Empty",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "type": "select",
+        "messageKey": "DateLanguage",
+        "defaultValue": "auto",
+        "label": "Date Language",
+        "options": [
+          {
+            "label": "Automatic (match watch)",
+            "value": "auto"
+          },
+          {
+            "label": "English",
+            "value": "en_EN"
+          },
+          {
+            "label": "Español",
+            "value": "es_ES"
+          },
+          {
+            "label": "Français",
+            "value": "fr_FR"
+          },
+          {
+            "label": "Deutsch",
+            "value": "de_DE"
+          },
+          {
+            "label": "Italiano",
+            "value": "it_IT"
+          },
+          {
+            "label": "Português",
+            "value": "pt_PT"
+          },
+          {
+            "label": "Svenska",
+            "value": "sv_SE"
+          },
+          {
+            "label": "Dansk",
+            "value": "da_DK"
+          },
+          {
+            "label": "Norsk",
+            "value": "no_NO"
+          },
+          {
+            "label": "Suomi",
+            "value": "fi_FI"
+          },
+          {
+            "label": "Nederlands",
+            "value": "nl_NL"
+          }
+        ]
+      },
+      {
+        "type": "select",
         "messageKey": "HealthLogoWeather",
-        "defaultValue": "ds",
+        "defaultValue": 1,
         "label": "Bottom left front screen",
         "options": [
           {
             "label": "Step count",
-            "value": "st"
+            "value": 0
           },
           {
             "label": "Custom Text",
-            "value": "tx"
+            "value": 1
           },
           {
             "label": "Current Temperature",
-            "value": "cf"
+            "value": 2
+          },
+          {
+            "label": "Battery Value",
+            "value": 3
+          },
+          {
+            "label": "Battery Icon",
+            "value": 4
+          },
+          {
+            "label": "Empty",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "type": "select",
+        "messageKey": "BottomRight",
+        "defaultValue": 3,
+        "label": "Bottom right front screen",
+        "options": [
+          {
+            "label": "Step count",
+            "value": 0
+          },
+          {
+            "label": "Custom Text",
+            "value": 1
+          },
+          {
+            "label": "Current Temperature",
+            "value": 2
+          },
+          {
+            "label": "Battery Value",
+            "value": 3
+          },
+          {
+            "label": "Battery Icon",
+            "value": 4
+          },
+          {
+            "label": "Empty",
+            "value": 5
           }
         ]
       },
       {
         "type": "toggle",
-        "messageKey": "UseWeather",
-        "label": "Show Weather data.",
-        "description": "current temperature visible in bottom left if selected above. Shake watch (and shake again) for more weather info",
+        "messageKey": "ShakeWeather",
+        "label": "More weather on shake",
+        "description": "Shake the watch (and shake again) for more weather",
         "defaultValue": true
       },
       {
@@ -46,7 +166,7 @@
         "messageKey": "LogoText",
         "defaultValue": "HYBRID",
         "label": "Custom Text",
-        "description": "Maximum 6 characters, visible in bottom left if Custom Text is selected above",
+        "description": "Maximum 6 characters (letters, numbers or .,:% only), shows if Custom Text is selected above",
         "attributes": {
           "placeholder": "HYBRID"
         }
@@ -88,18 +208,6 @@
       },
       {
         "type": "toggle",
-        "label": "Date visible",
-        "messageKey": "EnableDate",
-        "defaultValue": true
-      },
-      {
-        "type": "toggle",
-        "label": "Battery Value visible",
-        "messageKey": "EnableBattery",
-        "defaultValue": true
-      },
-      {
-        "type": "toggle",
         "label": "Foreground lines visible",
         "messageKey": "EnableLines",
         "defaultValue": true
@@ -133,11 +241,24 @@
         "step": 15
       },
       {
-        "type": "toggle",
-        "messageKey": "VibeOn",
-        "label": "Vibrate on Bluetooth disconnect during Quiet Time",
-        "description": "If set to off, will still vibrate on disconnect, but not during quiet time",
-        "defaultValue": false
+        "type": "radiogroup",
+        "messageKey": "VibeMode",
+        "label": "Vibrate on Bluetooth Disconnect",
+        "defaultValue": 0,
+        "options": [
+          {
+            "label": "Respects Quiet Time",
+            "value": 0
+          },
+          {
+            "label": "Always Vibrate on BT disconnect",
+            "value": 1
+          },
+          {
+            "label": "Never Vibrate on BT disconnect",
+            "value": 2
+          }
+        ]
       }
     ]
   },
@@ -168,32 +289,32 @@
       {
         "type": "radiogroup",
         "messageKey": "ThemeSelect",
-        "defaultValue": "wh",
+        "defaultValue": 0,
         "label": "COLOUR THEME SELECT",
         "options": [
           {
             "label": "White Background",
-            "value": "wh"
+            "value": 0
           },
           {
             "label": "Black Background",
-            "value": "bl"
+            "value": 1
           },
           {
             "label": "Blue Background",
-            "value": "bu"
+            "value": 2
           },
           {
             "label": "Purple Background",
-            "value": "pl"
+            "value": 3
           },
           {
             "label": "Black & Green",
-            "value": "gr"
+            "value": 4
           },
           {
             "label": "Custom Colours",
-            "value": "cu"
+            "value": 5
           }
         ]
       },
@@ -283,25 +404,25 @@
         "defaultValue": "00AA55"
       },
       {
-       "type": "color",
-       "messageKey": "UVArcColor",
-       "defaultValue": "0xAAAAAA",
-       "label": "UV and Rain Arc background colour",
-       "allowGray":true
+        "type": "color",
+        "messageKey": "UVArcColor",
+        "defaultValue": "0xAAAAAA",
+        "label": "UV and Rain Arc background colour",
+        "allowGray": true
       },
       {
-       "type": "color",
-       "messageKey": "UVMaxColor",
-       "defaultValue": "0xFFFFFF",
-       "label": "UV Index Max and Rain Chance Today Bar",
-       "allowGray":true
+        "type": "color",
+        "messageKey": "UVMaxColor",
+        "defaultValue": "0xFFFFFF",
+        "label": "UV Index Max and Rain Chance Today Bar",
+        "allowGray": true
       },
       {
-       "type": "color",
-       "messageKey": "UVNowColor",
-       "defaultValue": "0x555555",
-       "label": "UV Index Now and Rain Chance Next Hour Marks",
-       "allowGray":true
+        "type": "color",
+        "messageKey": "UVNowColor",
+        "defaultValue": "0x555555",
+        "label": "UV Index Now and Rain Chance Next Hour Marks",
+        "allowGray": true
       }
     ]
   },
@@ -318,24 +439,24 @@
       {
         "type": "radiogroup",
         "messageKey": "BWThemeSelect",
-        "defaultValue": "wh",
+        "defaultValue": 0,
         "label": "COLOUR THEME SELECT",
         "options": [
           {
             "label": "White Background",
-            "value": "wh"
+            "value": 0
           },
           {
             "label": "Black Background",
-            "value": "bl"
+            "value": 1
           },
           {
             "label": "Grey Background",
-            "value": "gy"
+            "value": 2
           },
           {
             "label": "Custom Colours",
-            "value": "cu"
+            "value": 3
           }
         ]
       },
@@ -407,28 +528,34 @@
         "defaultValue": "000000"
       },
       {
-       "type": "color",
-       "messageKey": "UVArcColor",
-       "capabilities":["MICROPHONE"],
-       "defaultValue": "0xAAAAAA",
-       "label": "UV and Rain Arc background colour",
-       "allowGray":true
+        "type": "color",
+        "messageKey": "UVArcColor",
+        "capabilities": [
+          "MICROPHONE"
+        ],
+        "defaultValue": "0xAAAAAA",
+        "label": "UV and Rain Arc background colour",
+        "allowGray": true
       },
       {
-       "type": "color",
-       "messageKey": "UVMaxColor",
-       "capabilities":["MICROPHONE"],
-       "defaultValue": "0xFFFFFF",
-       "label": "UV Index Max and Rain Chance Today Bar",
-       "allowGray":true
+        "type": "color",
+        "messageKey": "UVMaxColor",
+        "capabilities": [
+          "MICROPHONE"
+        ],
+        "defaultValue": "0xFFFFFF",
+        "label": "UV Index Max and Rain Chance Today Bar",
+        "allowGray": true
       },
       {
-       "type": "color",
-       "messageKey": "UVNowColor",
-       "capabilities":["MICROPHONE"],
-       "defaultValue": "0x555555",
-       "label": "UV Index Now and Rain Chance Next Hour Marks",
-       "allowGray":true
+        "type": "color",
+        "messageKey": "UVNowColor",
+        "capabilities": [
+          "MICROPHONE"
+        ],
+        "defaultValue": "0x555555",
+        "label": "UV Index Now and Rain Chance Next Hour Marks",
+        "allowGray": true
       }
     ]
   },
@@ -446,16 +573,16 @@
       {
         "type": "select",
         "messageKey": "WeatherProv",
-        "defaultValue": "ds",
+        "defaultValue": 0,
         "label": "Weather Provider",
         "options": [
           {
             "label": "Open-Meteo",
-            "value": "ds"
+            "value": 0
           },
           {
             "label": "OpenWeatherMap",
-            "value": "owm"
+            "value": 1
           }
         ]
       },
@@ -505,71 +632,75 @@
       {
         "type": "select",
         "messageKey": "RainUnit",
-        "capabilities":["MICROPHONE"],
+        "capabilities": [
+          "MICROPHONE"
+        ],
         "label": "Rain quantity unit to display",
         "description": "Rain displays as amount of rain (in mm or inches) & chance of rain in next hour",
-        "defaultValue": "mm",
+        "defaultValue": 0,
         "options": [
           {
             "label": "millimeters",
-            "value": "mm"
+            "value": 0
           },
           {
             "label": "inches",
-            "value": "in"
+            "value": 1
           }
         ]
       },
       {
-       "type": "select",
-          "messageKey": "PressureUnit",
-          "capabilities":["MICROPHONE"],
-          "label": "Barometric Pressure Unit",
-          "defaultValue": "mb",
-              "options": [
-            {
-              "label": "millibars (mb)",
-              "value": "mb"
-            },
-            {
-              "label": "inches of Mercury (Hg)",
-              "value": "hg"
-            },
-            {
-              "label": "millimeters of Mercury (mmHg)",
-              "value": "tor"
-            },
-            {
-              "label": "Pascals (P)",
-              "value": "ap"
-            },
-            {
-              "label": "standard atmospheric (atm)",
-              "value": "atm"
-            }
-            ]
+        "type": "select",
+        "messageKey": "PressureUnit",
+        "capabilities": [
+          "MICROPHONE"
+        ],
+        "label": "Barometric Pressure Unit",
+        "defaultValue": 0,
+        "options": [
+          {
+            "label": "millibars (mb)",
+            "value": 0
+          },
+          {
+            "label": "inches of Mercury (Hg)",
+            "value": 1
+          },
+          {
+            "label": "millimeters of Mercury (mmHg)",
+            "value": 2
+          },
+          {
+            "label": "Pascals (P)",
+            "value": 3
+          },
+          {
+            "label": "standard atmospheric (atm)",
+            "value": 4
+          }
+        ]
       },
       {
         "type": "select",
         "messageKey": "WindUnit",
         "label": "Wind speed unit to display",
-        "defaultValue": "kts",
+        "defaultValue": 0,
         "options": [
           {
             "label": "knots",
-            "value": "kts"
+            "value": 0
           },
           {
             "label": "miles per hour",
-            "value": "mph"
+            "value": 1
           },
           {
             "label": "metres per second",
-            "value": "ms"
+            "value": 2
           },
           {
             "label": "kilometres per hour",
-            "value": "kph"
+            "value": 3
           }
         ]
       }

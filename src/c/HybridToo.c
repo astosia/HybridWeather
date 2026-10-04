@@ -34,6 +34,7 @@ static Layer *s_weather_layer_2;
 static GFont FontBTQTIcons;
 static GFont FontWeatherIcons;
 static GFont FontWeatherIconsSmall;
+static GFont FontBatteryIcon;
 static GFont small_font;
 static GFont medium_font;
 static GFont small_medium_font;
@@ -422,6 +423,12 @@ const UIConfig __attribute__((section(".rodata"))) config = {
 // ---------------------------------------------------------------------------
 // Efficiency: Subscribe & Cache 
 // ---------------------------------------------------------------------------
+// Language for weekday/month names: the config override if set,
+// otherwise the watch's own language.
+static const char *date_locale(void) {
+  return settings.DateLanguage[0] ? settings.DateLanguage : i18n_get_system_locale();
+}
+
 static void update_cached_strings() {
 
     minutes   = prv_tick_time.tm_min;
@@ -444,7 +451,7 @@ static void update_cached_strings() {
     // 2. Date string
     if (settings.EnableDate) {
         char weekdaydraw[10];
-        fetchwday(prv_tick_time.tm_wday, i18n_get_system_locale(), weekdaydraw);
+        fetchwday(prv_tick_time.tm_wday, date_locale(), weekdaydraw);
         snprintf(s_date_text, sizeof(s_date_text), "%s %d", weekdaydraw, prv_tick_time.tm_mday);
     }
     // 3. Logo text
@@ -456,7 +463,10 @@ static void update_cached_strings() {
 static void bluetooth_callback(bool connected) {
     bool was_connected = s_connected;
     s_connected = connected;
-    if (was_connected && !connected && (!quiet_time_is_active() || settings.VibeOn)) {
+    // VibeMode: 0 = respect Quiet Time, 1 = always, 2 = never
+    bool vibe = settings.VibeMode == 1 ||
+                (settings.VibeMode == 0 && !quiet_time_is_active());
+    if (was_connected && !connected && vibe) {
         vibes_double_pulse();
     }
     layer_mark_dirty(s_fg_layer);
@@ -470,6 +480,7 @@ static void bluetooth_callback(bool connected) {
 static void battery_callback(BatteryChargeState state) {
     s_battery_level = state.charge_percent;
     snprintf(s_batt_text, sizeof(s_batt_text), "%d%%", s_battery_level);
+    if (s_fg_layer) { layer_mark_dirty(s_fg_layer); }   // battery icon + percentage live here
     layer_mark_dirty(s_weather_layer_1);
     //#if defined (PBL_PLATFORM_EMERY) || defined (PBL_PLATFORM_GABBRO) || defined (PBL_PLATFORM_DIORITE) || defined (PBL_PLATFORM_FLINT)
     #ifndef PBL_PLATFORM_APLITE
@@ -609,15 +620,45 @@ static void draw_btqt_icons(GContext *ctx, GRect bounds) {
     if (!s_connected) {
         int x = bounds.size.w / 2 - config.fg_radius + config.BTxOffset;
         int y = bounds.size.h / 2 + config.BTIconYOffset;
-        graphics_context_set_text_color(ctx, settings.TextColor1);
+        graphics_context_set_text_color(ctx, settings.BTQTColor);
         graphics_draw_text(ctx, "z", FontBTQTIcons, GRect(x, y, config.BTQTRectWidth, 20), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
     }
     if (quiet_time_is_active()) {
         int x = bounds.size.w / 2 - config.fg_radius + config.QTxOffset;
         int y = bounds.size.h / 2 + config.QTIconYOffset;
-        graphics_context_set_text_color(ctx, settings.TextColor1);
+        graphics_context_set_text_color(ctx, settings.BTQTColor);
         graphics_draw_text(ctx, "\U0000E061", FontBTQTIcons, GRect(x, y, config.BTQTRectWidth, 20), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
     }
+}
+
+// Battery icon (dripicons-v2), right-aligned to the same edge as the
+// bottom-left text. Glyph follows charge: t = empty (<=10%), v = low (11-49%),
+// w = medium (50-89%), u = full (90-100%). top_y is where the text's top sits; BATT_ICON_Y_NUDGE
+// lets you fine-tune the vertical position per platform without touching
+// the shared layout config.
+#define BATT_ICON_Y_NUDGE PBL_IF_RECT_ELSE(0, 0)
+static const char *battery_icon_glyph(int percent) {
+    if (percent <= 10) return "t";
+    if (percent < 50)  return "v";
+    if (percent < 90)  return "w";
+    return "u";
+}
+
+static void draw_battery_icon(GContext *ctx, GRect box, GTextAlignment align) {
+    box.origin.y += BATT_ICON_Y_NUDGE;
+    graphics_context_set_text_color(ctx, settings.TextColor1);
+    graphics_draw_text(ctx, battery_icon_glyph(s_battery_level), FontBatteryIcon,
+                       box, GTextOverflowModeFill, align, NULL);
+}
+
+// Bottom-left slot: icon's right edge at right_x.
+static void draw_battery_icon_left(GContext *ctx, int right_x, int top_y) {
+    draw_battery_icon(ctx, GRect(0, top_y, right_x, 20), GTextAlignmentRight);
+}
+
+// Bottom-right slot (replaces the battery value): icon's left edge at left_x.
+static void draw_battery_icon_right(GContext *ctx, GRect bounds, int left_x, int top_y) {
+    draw_battery_icon(ctx, GRect(left_x, top_y, bounds.size.w - left_x, 20), GTextAlignmentLeft);
 }
 
 // ---------------------------------------------------------------------------
@@ -720,20 +761,19 @@ static void prv_default_settings(void) {
   settings.EnableSecondsHand = true;
   settings.SecondsVisibleTime = 135;
   settings.EnableDate = true;
-  settings.EnableBattery = true;
+  settings.BottomRight = SLOT_BATT_VALUE;
+  settings.SwapDayMonth = false;
+  settings.DateLanguage[0] = '\0';   // automatic
   settings.EnableBatteryLine = true;
   settings.EnableLogo = true;
-  snprintf(settings.ThemeSelect, sizeof(settings.ThemeSelect), "%s", "wh");
-  snprintf(settings.HealthLogoWeather, sizeof(settings.HealthLogoWeather), "%s", "cf");
+  settings.HealthLogoWeather = SLOT_BATT_ICON;
   settings.BackgroundColor1 = GColorWhite;
   #if PBL_COLOR
   settings.ShadowColor = GColorLightGray;
   settings.ShadowOn = true;
-  snprintf(settings.ThemeSelect, sizeof(settings.ThemeSelect), "%s", "wh");
-  #else
-  snprintf(settings.BWThemeSelect, sizeof(settings.BWThemeSelect), "%s", "wh");
   #endif
   settings.TextColor1 = GColorWhite;
+  settings.BTQTColor = settings.TextColor1;
   settings.MajorTickColor = GColorBlack;
   settings.MinorTickColor = GColorDarkGray;
   settings.HoursHandColor = PBL_IF_BW_ELSE(GColorWhite, GColorWhite);
@@ -741,7 +781,7 @@ static void prv_default_settings(void) {
   settings.MinutesHandColor = PBL_IF_BW_ELSE(GColorWhite, GColorWhite);
   settings.MinutesHandBorderColor = PBL_IF_BW_ELSE(GColorBlack, GColorRed);
   settings.SecondsHandColor = PBL_IF_BW_ELSE(GColorBlack, GColorJaegerGreen);
-  settings.VibeOn = false;
+  settings.VibeMode = 0;
   settings.FGColor = GColorBlack;
   settings.RemoveZero24h = false;
   settings.AddZero12h = false;
@@ -770,6 +810,7 @@ static void prv_default_settings(void) {
   settings.UpSlider = 30;
   settings.HealthOn = false;
   settings.UseWeather = false;
+  settings.ShakeWeather = false;
 }
 
 static void prv_load_settings(void) {
@@ -827,7 +868,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     #ifndef PBL_PLATFORM_APLITE
     layer_mark_dirty(s_weather_layer_2);
     #endif
-    if (settings.EnableDate && tick_time->tm_mday != s_day) {
+    if (tick_time->tm_mday != s_day) {   // keep current even while the top row is hidden
       s_day = tick_time->tm_mday;
       s_weekday = tick_time->tm_wday;
       s_month = tick_time->tm_mon;
@@ -857,8 +898,8 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void update_weather_view_visibility() {
- // If UseWeather was just turned off, force the view back to main (0)
-  if (!settings.UseWeather) {
+ // If shake screens were just turned off, force the view back to main (0)
+  if (!settings.ShakeWeather) {
     showWeather = 0;
   }
   //#if defined (PBL_PLATFORM_EMERY) || defined (PBL_PLATFORM_GABBRO) || defined (PBL_PLATFORM_DIORITE) || defined (PBL_PLATFORM_FLINT)
@@ -979,7 +1020,7 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
 
 //#if defined (PBL_PLATFORM_EMERY) || defined (PBL_PLATFORM_GABBRO) || defined (PBL_PLATFORM_DIORITE) || defined (PBL_PLATFORM_FLINT)
 #ifndef PBL_PLATFORM_APLITE  
-  if (settings.UseWeather) {
+  if (settings.ShakeWeather) {
     #ifdef DEBUG
       APP_LOG(APP_LOG_LEVEL_DEBUG, "showWeather v1 = %d", showWeather);
     #endif
@@ -1001,7 +1042,7 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     #endif
   }
 #else
-  if (settings.UseWeather) {
+  if (settings.ShakeWeather) {
     #ifdef DEBUG
       APP_LOG(APP_LOG_LEVEL_DEBUG, "showWeather v1 = %d", showWeather);
     #endif
@@ -1105,6 +1146,21 @@ static void health_handler(HealthEventType event, void *context) {
   }
 
 // ---------------------------------------------------------------------------
+// Bottom-left / bottom-right slot options
+//   see SlotOption in HybridToo.h
+// ---------------------------------------------------------------------------
+// Dropdown values arrive from Clay as numeric strings ("0", "1", ...);
+// accept plain integers too.
+static int tuple_int(const Tuple *t) {
+  return (t->type == TUPLE_CSTRING) ? atoi(t->value->cstring) : (int)t->value->int32;
+}
+
+static uint8_t slot_from_tuple(const Tuple *t, uint8_t fallback) {
+  int v = tuple_int(t);
+  return (v >= 0 && v < SLOT_COUNT) ? (uint8_t)v : fallback;
+}
+
+// ---------------------------------------------------------------------------
 // AppMessage inbox handler
 // ---------------------------------------------------------------------------
 
@@ -1118,21 +1174,25 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   //(void)settings_changed;
   //(void)theme_settings_changed;
 
-  Tuple *vibe_t               = dict_find(iter, MESSAGE_KEY_VibeOn);
+  Tuple *vibe_t               = dict_find(iter, MESSAGE_KEY_VibeMode);
   Tuple *enable_seconds_t     = dict_find(iter, MESSAGE_KEY_EnableSecondsHand);
   Tuple *enable_secondsvisible_t = dict_find(iter, MESSAGE_KEY_SecondsVisibleTime);
-  Tuple *enable_date_t        = dict_find(iter, MESSAGE_KEY_EnableDate);
-  Tuple *enable_battery_t     = dict_find(iter, MESSAGE_KEY_EnableBattery);
-  Tuple *enable_logo_t        = dict_find(iter, MESSAGE_KEY_EnableLogo);
+  Tuple *bottomright_t        = dict_find(iter, MESSAGE_KEY_BottomRight);
+  Tuple *toprow_t             = dict_find(iter, MESSAGE_KEY_TopRow);
+  Tuple *datelang_t           = dict_find(iter, MESSAGE_KEY_DateLanguage);
   Tuple *healthlogoweather_t  = dict_find(iter, MESSAGE_KEY_HealthLogoWeather);
   Tuple *logotext_t           = dict_find(iter, MESSAGE_KEY_LogoText);
   Tuple *bwthemeselect_t      = dict_find(iter, MESSAGE_KEY_BWThemeSelect);
   Tuple *themeselect_t        = dict_find(iter, MESSAGE_KEY_ThemeSelect);
+  int bw_theme = bwthemeselect_t ? tuple_int(bwthemeselect_t) : -1;
+  int theme    = themeselect_t   ? tuple_int(themeselect_t)   : -1;
   Tuple *bg_color1_t          = dict_find(iter, MESSAGE_KEY_BackgroundColor1);
   Tuple *bg_color2_t          = dict_find(iter, MESSAGE_KEY_ShadowColor);
   Tuple *text_color1_t        = dict_find(iter, MESSAGE_KEY_TextColor1);
   Tuple *major_tick_color_t   = dict_find(iter, MESSAGE_KEY_MajorTickColor);
   Tuple *minor_tick_color_t   = dict_find(iter, MESSAGE_KEY_MinorTickColor);
+  Tuple *tick_color_t         = dict_find(iter, MESSAGE_KEY_TickColor);   // B&W: single colour for major + minor ticks
+  Tuple *btqt_color_t         = dict_find(iter, MESSAGE_KEY_BTQTColor);
   Tuple *hours_color_t        = dict_find(iter, MESSAGE_KEY_HoursHandColor);
   Tuple *hours_border_t       = dict_find(iter, MESSAGE_KEY_HoursHandBorderColor);
   Tuple *minutes_color_t      = dict_find(iter, MESSAGE_KEY_MinutesHandColor);
@@ -1191,17 +1251,11 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   Tuple * weather_t = dict_find(iter, MESSAGE_KEY_Weathertime);
   Tuple * neigh_t = dict_find(iter, MESSAGE_KEY_NameLocation);
   Tuple * frequpdate = dict_find(iter, MESSAGE_KEY_UpSlider);
-  Tuple * useweather_t = dict_find(iter, MESSAGE_KEY_UseWeather);
+  Tuple * shakeweather_t = dict_find(iter, MESSAGE_KEY_ShakeWeather);
 
 
-  if (useweather_t) {
-    settings.UseWeather = useweather_t->value->int32 != 0;
-    if(settings.UseWeather){
-      accel_tap_service_subscribe(accel_tap_handler); 
-      #ifdef DEBUG
-        APP_LOG(APP_LOG_LEVEL_DEBUG, "accel subscribed weather on");
-      #endif
-    }
+  if (shakeweather_t) {
+    settings.ShakeWeather = shakeweather_t->value->int32 != 0;
     settings_changed = true;
   }
 
@@ -1221,7 +1275,9 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   }
 
   if (vibe_t) {
-    settings.VibeOn = vibe_t->value->int32 != 0;
+    // Clay sends radiogroup values as strings ("0"/"1"/"2")
+    int mode = tuple_int(vibe_t);
+    settings.VibeMode = (mode >= 0 && mode <= 2) ? mode : 0;
     settings_changed = true;
   }
 
@@ -1249,11 +1305,6 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
     settings_changed = true;   // this was also missing — the change wasn't being persisted
   }
 
-  if (enable_date_t) {
-    settings.EnableDate = enable_date_t->value->int32 == 1;
-    settings_changed = true;
-  }
-
   if (enable_lines_t) {
     settings.EnableLines = enable_lines_t->value->int32 == 1;
     settings_changed = true;
@@ -1274,60 +1325,68 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
     settings_changed = true;
   }
 
-  if (healthlogoweather_t) {
-    if (strcmp(healthlogoweather_t->value->cstring, "st") == 0) {
-      settings.HealthOn = true;
-      snprintf(settings.HealthLogoWeather, sizeof(settings.HealthLogoWeather), "%s", "st");
-          if (settings.HealthOn) {
-          #ifdef DEBUG
-            APP_LOG(APP_LOG_LEVEL_DEBUG, "Health on");
-          #endif
-          health_service_events_unsubscribe();              // avoid double-subscribing
-          health_service_events_subscribe(health_handler, NULL);  // ← ADD THIS
-          get_step_count();
-          display_step_count();
-          settings_changed = true;
-        } else {
-          #ifdef DEBUG
-            APP_LOG(APP_LOG_LEVEL_DEBUG, "Health off");
-          #endif
-          health_service_events_unsubscribe();              // ← ADD THIS
-          snprintf(s_current_steps_buffer, sizeof(s_current_steps_buffer), "%s", "");
-          settings_changed = true;
-        }
-    } else 
-    if (strcmp(healthlogoweather_t->value->cstring, "tx") == 0) {
-      settings.HealthOn = false;
-      health_service_events_unsubscribe();
-      snprintf(settings.HealthLogoWeather, sizeof(settings.HealthLogoWeather), "%s", "tx");
-            if (settings.EnableLogo && logotext_t && strlen(logotext_t->value->cstring) > 0) {
-            // If the custom text field is not blank, use the user's text
-            snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", logotext_t->value->cstring);
-            } else if (settings.EnableLogo && strlen(logotext_t->value->cstring) == 0) {
-              // If the custom text field is blank but the logo is enabled, use the default text
-            snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", "HYBRID");
-            }
-            else {
-              snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", "");
-            }
+  // Custom text: kept up to date whenever it's sent, whichever slot shows it
+  if (logotext_t) {
+    if (strlen(logotext_t->value->cstring) > 0) {
+      snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", logotext_t->value->cstring);
     } else {
-      snprintf(settings.HealthLogoWeather, sizeof(settings.HealthLogoWeather), "%s", "cf");
-      settings.HealthOn = false;
-      health_service_events_unsubscribe();
+      snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", "HYBRID");
     }
     settings_changed = true;
   }
 
+  // Bottom-left / bottom-right slots share the same set of options
+  if (healthlogoweather_t) {
+    settings.HealthLogoWeather = slot_from_tuple(healthlogoweather_t, SLOT_TEMP);
+    settings_changed = true;
+  }
+  if (bottomright_t) {
+    settings.BottomRight = slot_from_tuple(bottomright_t, SLOT_BATT_VALUE);
+    settings_changed = true;
+  }
+
+  // Date language: "auto" (stored as empty) follows the watch, otherwise a
+  // locale code such as "fr_FR" passed straight to fetchwday/fetchmonth.
+  if (datelang_t && datelang_t->type == TUPLE_CSTRING) {
+    const char *lang = datelang_t->value->cstring;
+    if (strcmp(lang, "auto") == 0 || strlen(lang) >= sizeof(settings.DateLanguage)) {
+      settings.DateLanguage[0] = '\0';
+    } else {
+      snprintf(settings.DateLanguage, sizeof(settings.DateLanguage), "%s", lang);
+    }
+    update_cached_strings();
+    settings_changed = true;
+  }
+
+  // Top row: 0 = Day - Date - Month, 1 = Month - Date - Day, 2 = nothing.
+  // EnableDate is driven by this dropdown.
+  if (toprow_t) {
+    int tr = tuple_int(toprow_t);
+    settings.EnableDate   = tr != TOPROW_NONE;
+    settings.SwapDayMonth = tr == TOPROW_MONTH_DAY;
+    settings_changed = true;
+  }
+
+  // Health is needed if either slot shows the step count
+  if (healthlogoweather_t || bottomright_t) {
+    settings.HealthOn = settings.HealthLogoWeather == SLOT_STEPS ||
+                        settings.BottomRight == SLOT_STEPS;
+    health_service_events_unsubscribe();               // avoid double-subscribing
+    if (settings.HealthOn) {
+      health_service_events_subscribe(health_handler, NULL);
+      get_step_count();
+      display_step_count();
+    } else {
+      snprintf(s_current_steps_buffer, sizeof(s_current_steps_buffer), "%s", "");
+    }
+  }
 
   if (fg_shape_t) {
     settings.ForegroundShape = fg_shape_t->value->int32 == 1;
     settings_changed = true;
   }
 
-  if (enable_battery_t) {
-    settings.EnableBattery = enable_battery_t->value->int32 == 1;
-    settings_changed = true;
-  }
+
 
   if (enable_secondsvisible_t) {
     settings.SecondsVisibleTime = (int)enable_secondsvisible_t->value->int32;
@@ -1352,7 +1411,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
      if (settings.EnableSecondsHand) {
         showSeconds = true;
         tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
-        if (!settings.UseWeather) accel_tap_service_unsubscribe();
+        if (!settings.ShakeWeather) accel_tap_service_unsubscribe();
       } else {
         showSeconds = false;
         tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
@@ -1371,7 +1430,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       showSeconds = false;
       tick_timer_service_unsubscribe();
       tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-        if(!settings.UseWeather){
+        if(!settings.ShakeWeather){
           accel_tap_service_unsubscribe();
           #ifdef DEBUG
             APP_LOG(APP_LOG_LEVEL_DEBUG, "accel unsubscribed weather off, seconds off");
@@ -1571,7 +1630,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
 
 
   if (bwthemeselect_t) {
-    if (strcmp(bwthemeselect_t->value->cstring, "wh") == 0) {
+    if (bw_theme == BW_THEME_WHITE) {
       settings.TextColor1 = GColorWhite;
       settings.BackgroundColor1 = GColorWhite;
       settings.HoursHandColor = GColorWhite;
@@ -1587,7 +1646,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorWhite;
       settings.UVNowColor = GColorWhite;
       theme_settings_changed = true;
-    } else if (strcmp(bwthemeselect_t->value->cstring, "bl") == 0) {
+    } else if (bw_theme == BW_THEME_BLACK) {
       settings.TextColor1 = GColorBlack;
       settings.BackgroundColor1 = GColorBlack;
       settings.HoursHandColor = GColorBlack;
@@ -1603,7 +1662,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorBlack;
       settings.UVNowColor = GColorBlack;
       theme_settings_changed = true;
-    } else if (strcmp(bwthemeselect_t->value->cstring, "gy") == 0) {
+    } else if (bw_theme == BW_THEME_GREY) {
       settings.TextColor1 = GColorBlack;
       settings.BackgroundColor1 = GColorLightGray;
       settings.HoursHandColor = GColorWhite;
@@ -1619,11 +1678,15 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorBlack;
       settings.UVNowColor = GColorBlack;
       theme_settings_changed = true;
-    } else if (strcmp(bwthemeselect_t->value->cstring, "cu") == 0) {
+    } else if (bw_theme == BW_THEME_CUSTOM) {
       if (bg_color1_t)    { settings.BackgroundColor1 = GColorFromHEX(bg_color1_t->value->int32); settings_changed = true; }
       if (text_color1_t)  { settings.TextColor1 = GColorFromHEX(text_color1_t->value->int32); }
       if (major_tick_color_t)  { settings.MajorTickColor = GColorFromHEX(major_tick_color_t->value->int32); }
       if (minor_tick_color_t)  { settings.MinorTickColor = GColorFromHEX(minor_tick_color_t->value->int32); }
+      if (tick_color_t) {
+        settings.MajorTickColor = GColorFromHEX(tick_color_t->value->int32);
+        settings.MinorTickColor = settings.MajorTickColor;
+      }
       if (hours_color_t)  { settings.HoursHandColor = GColorFromHEX(hours_color_t->value->int32); }
       if (hours_border_t) { settings.HoursHandBorderColor = GColorFromHEX(hours_border_t->value->int32); }
       if (minutes_color_t){ settings.MinutesHandColor = GColorFromHEX(minutes_color_t->value->int32); }
@@ -1639,7 +1702,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   }
 
   if (themeselect_t) {
-    if (strcmp(themeselect_t->value->cstring, "wh") == 0) {
+    if (theme == THEME_WHITE) {
       settings.BackgroundColor1 = GColorWhite;
       if (shadowon_t) { settings.ShadowOn = shadowon_t->value->int32 == 1; }
       settings.ShadowColor = settings.ShadowOn ? GColorLightGray : GColorWhite;
@@ -1657,7 +1720,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorWhite;
       settings.UVNowColor = GColorRed;
       theme_settings_changed = true;
-    } else if (strcmp(themeselect_t->value->cstring, "bl") == 0) {
+    } else if (theme == THEME_BLACK) {
       settings.BackgroundColor1 = GColorBlack;
       if (shadowon_t) { settings.ShadowOn = shadowon_t->value->int32 == 1; }
       settings.ShadowColor = settings.ShadowOn ? GColorDarkGray : GColorBlack;
@@ -1675,7 +1738,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorWhite;
       settings.UVNowColor = GColorRed;
       theme_settings_changed = true;
-    } else if (strcmp(themeselect_t->value->cstring, "bu") == 0) {
+    } else if (theme == THEME_BLUE) {
       settings.BackgroundColor1 = GColorDukeBlue;
       if (shadowon_t) { settings.ShadowOn = shadowon_t->value->int32 == 1; }
       settings.ShadowColor = settings.ShadowOn ? GColorOxfordBlue : GColorDukeBlue;
@@ -1693,7 +1756,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorWhite;
       settings.UVNowColor = GColorRed;
       theme_settings_changed = true;
-    } else if (strcmp(themeselect_t->value->cstring, "pl") == 0) {
+    } else if (theme == THEME_PURPLE) {
       settings.BackgroundColor1 = GColorPurple;
       if (shadowon_t) { settings.ShadowOn = shadowon_t->value->int32 == 1; }
       settings.ShadowColor = settings.ShadowOn ? GColorImperialPurple : GColorPurple;
@@ -1711,7 +1774,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorWhite;
       settings.UVNowColor = GColorRed;
       theme_settings_changed = true;
-    } else if (strcmp(themeselect_t->value->cstring, "gr") == 0) {
+    } else if (theme == THEME_GREEN) {
       settings.BackgroundColor1 = GColorBlack;
       if (shadowon_t) { settings.ShadowOn = shadowon_t->value->int32 == 1; }
       settings.ShadowColor = settings.ShadowOn ? GColorDarkGreen : GColorBlack;
@@ -1729,7 +1792,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       settings.UVMaxColor = GColorBlack;
       settings.UVNowColor = GColorWhite;
       theme_settings_changed = true;
-    } else if (strcmp(themeselect_t->value->cstring, "cu") == 0) {
+    } else if (theme == THEME_CUSTOM) {
       if (bg_color1_t) { settings.BackgroundColor1 = GColorFromHEX(bg_color1_t->value->int32); settings_changed = true; }
       if (shadowon_t) {
         settings.ShadowOn = shadowon_t->value->int32 == 1;
@@ -1754,6 +1817,33 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       if (uvnowcol_t){settings.UVNowColor = GColorFromHEX(uvnowcol_t-> value -> int32);}
       theme_settings_changed = true;
     }
+  }
+
+  // Bluetooth / Quiet Time icon colour: follows the text colour for preset
+  // themes and B&W; uses its own picker only with colour Custom Colours.
+  if (themeselect_t || bwthemeselect_t) {
+    bool colour_custom = themeselect_t && theme == THEME_CUSTOM;
+    if (colour_custom && btqt_color_t) {
+      settings.BTQTColor = GColorFromHEX(btqt_color_t->value->int32);
+    } else {
+      settings.BTQTColor = settings.TextColor1;
+    }
+    theme_settings_changed = true;
+  }
+
+  // Weather data is fetched automatically when it's needed: current temperature
+  // in either bottom slot, or the extra weather screens on shake.
+  if (healthlogoweather_t || bottomright_t || shakeweather_t) {
+    settings.UseWeather = settings.HealthLogoWeather == SLOT_TEMP ||
+                          settings.BottomRight == SLOT_TEMP ||
+                          settings.ShakeWeather;
+    if (settings.ShakeWeather) {
+      accel_tap_service_subscribe(accel_tap_handler);
+    } else if (!(settings.EnableSecondsHand && settings.SecondsVisibleTime < 135)) {
+      accel_tap_service_unsubscribe();   // nothing else needs taps
+    }
+    update_weather_view_visibility();    // drop back to the front screen if shake screens went off
+    settings_changed = true;
   }
 
   if (settings_changed || theme_settings_changed) {
@@ -2231,6 +2321,59 @@ static void weather2_update_proc(Layer *layer, GContext *ctx) {
 
 //#ifndef PBL_BW
 #if defined (PBL_PLATFORM_GABBRO) || defined (PBL_PLATFORM_EMERY) 
+// Draws one bottom slot with fctx. Left slot is right-aligned to
+// centre - xOffset, right slot is left-aligned from centre + xOffset.
+// Battery icon is drawn separately after fctx is released; SLOT_NONE draws nothing.
+static void fctx_draw_slot(FContext *fctx, GRect bounds, uint8_t slot, bool right) {
+  int cx = bounds.size.w / 2;
+  fixed_t anchor_x = INT_TO_FIXED(right ? cx + config.xOffset : cx - config.xOffset);
+  fixed_t text_y   = INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent);
+  GTextAlignment align = right ? GTextAlignmentLeft : GTextAlignmentRight;
+
+  if (slot == SLOT_BATT_VALUE) {
+    char battperc[6];
+    snprintf(battperc, sizeof(battperc), "%d", battery_state_service_peek().charge_percent);
+
+    fctx_begin_fill(fctx);
+    fctx_set_fill_color(fctx, settings.TextColor1);
+    fctx_set_text_em_height(fctx, FCTX_Font, config.info_font_size);
+    fixed_t num_w = fctx_string_width(fctx, battperc, FCTX_Font);
+    fctx_set_text_em_height(fctx, FCTX_Font, config.other_text_font_size);
+    fixed_t pct_w = fctx_string_width(fctx, "%", FCTX_Font);
+    // Number + small "%" laid out left-to-right from start_x on either side
+    fixed_t start_x = right ? anchor_x : anchor_x - num_w - pct_w;
+
+    fctx_set_text_em_height(fctx, FCTX_Font, config.info_font_size);
+    fctx_set_offset(fctx, (FPoint){ start_x,
+      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetBattery) });
+    fctx_draw_string(fctx, battperc, FCTX_Font, GTextAlignmentLeft, FTextAnchorTop);
+
+    fctx_set_text_em_height(fctx, FCTX_Font, config.other_text_font_size);
+    fctx_set_offset(fctx, (FPoint){ start_x + num_w, text_y });
+    fctx_draw_string(fctx, "%", FCTX_Font, GTextAlignmentLeft, FTextAnchorTop);
+    fctx_end_fill(fctx);
+    return;
+  }
+
+  const char *text = NULL;
+  int em = config.other_text_font_size;
+  if (slot == SLOT_STEPS) {
+    if (settings.HealthOn) { text = s_current_steps_buffer; }
+  } else if (slot == SLOT_TEXT) {
+    text = settings.LogoText;
+  } else if (slot == SLOT_TEMP) {
+    if (settings.UseWeather) { text = settings.tempstring; em = config.info_font_size; }
+  }
+  if (!text || !text[0]) { return; }
+
+  fctx_begin_fill(fctx);
+  fctx_set_fill_color(fctx, settings.TextColor1);
+  fctx_set_text_em_height(fctx, FCTX_Font, em);
+  fctx_set_offset(fctx, (FPoint){ anchor_x, text_y });
+  fctx_draw_string(fctx, text, FCTX_Font, align, FTextAnchorTop);
+  fctx_end_fill(fctx);
+}
+
 static void fg_update_proc(Layer *layer, GContext *ctx) {
  GRect bounds = layer_get_bounds(layer);
   #ifndef PBL_ROUND
@@ -2332,7 +2475,7 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
     fctx_begin_fill(&fctx);
     fctx_set_fill_color(&fctx, settings.TextColor1);
 
-    const char *sys_locale = i18n_get_system_locale();
+    const char *sys_locale = date_locale();
     char weekdaydraw[10];
     fetchwday(s_weekday, sys_locale, weekdaydraw);
     char datenow[3];
@@ -2347,14 +2490,14 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
       INT_TO_FIXED(bounds.size.h / 2 - config.other_text_font_size - config.yOffset)
     };
     fctx_set_offset(&fctx, weekday_pos);
-    fctx_draw_string(&fctx, weekdaydraw, FCTX_Font, GTextAlignmentRight, FTextAnchorBottom);
+    fctx_draw_string(&fctx, settings.SwapDayMonth ? monthnow : weekdaydraw, FCTX_Font, GTextAlignmentRight, FTextAnchorBottom);
 
     FPoint month_pos = {
       INT_TO_FIXED(bounds.size.w * 0.58 + config.xOffset),
       INT_TO_FIXED(bounds.size.h / 2 - config.other_text_font_size - config.yOffset)
     };
     fctx_set_offset(&fctx, month_pos);
-    fctx_draw_string(&fctx, monthnow, FCTX_Font, GTextAlignmentLeft, FTextAnchorBottom);
+    fctx_draw_string(&fctx, settings.SwapDayMonth ? weekdaydraw : monthnow, FCTX_Font, GTextAlignmentLeft, FTextAnchorBottom);
 
     fctx_set_text_em_height(&fctx, FCTX_Font, config.info_font_size);
 
@@ -2367,92 +2510,20 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
     fctx_end_fill(&fctx);
   }
  
-  if (settings.EnableBattery) {
-    int battery_level = battery_state_service_peek().charge_percent;
-    char battperc[6];
-    snprintf(battperc, sizeof(battperc), "%d", battery_level);
-
-    fctx_begin_fill(&fctx);
-    fctx_set_fill_color(&fctx, settings.TextColor1);
-    fctx_set_text_em_height(&fctx, FCTX_Font, config.info_font_size);
-
-    FPoint battery_pos = {
-      INT_TO_FIXED(bounds.size.w / 2 + config.xOffset),
-      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetBattery)
-    };
-    fctx_set_offset(&fctx, battery_pos);
-    fctx_draw_string(&fctx, battperc, FCTX_Font, GTextAlignmentLeft, FTextAnchorTop);
-
-    fixed_t battery_width = fctx_string_width(&fctx, battperc, FCTX_Font);
-
-    fctx_set_text_em_height(&fctx, FCTX_Font, config.other_text_font_size);
-    FPoint percent_pos = {
-      INT_TO_FIXED(bounds.size.w / 2 + config.xOffset) + battery_width,
-      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent)
-    };
-    fctx_set_offset(&fctx, percent_pos);
-    fctx_draw_string(&fctx, "%", FCTX_Font, GTextAlignmentLeft, FTextAnchorTop);
-    fctx_end_fill(&fctx);
-  }
- 
-
-
-  if (strcmp(settings.HealthLogoWeather, "st") == 0 && settings.HealthOn) {
-    //display_step_count();
-    fctx_begin_fill(&fctx);
-    fctx_set_fill_color(&fctx, settings.TextColor1);
-    fctx_set_text_em_height(&fctx, FCTX_Font, config.other_text_font_size);
-    FPoint word_pos = {
-      INT_TO_FIXED(bounds.size.w / 2 - config.xOffset),
-      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent)
-    };
-    fctx_set_offset(&fctx, word_pos);
-    fctx_draw_string(&fctx, s_current_steps_buffer, FCTX_Font, GTextAlignmentRight, FTextAnchorTop);
-    fctx_end_fill(&fctx);
-  }
-  else if (strcmp(settings.HealthLogoWeather, "tx") == 0 ) {
-    fctx_begin_fill(&fctx);
-    fctx_set_fill_color(&fctx, settings.TextColor1);
-    fctx_set_text_em_height(&fctx, FCTX_Font, config.other_text_font_size);
-    FPoint word_pos = {
-      INT_TO_FIXED(bounds.size.w / 2 - config.xOffset),
-      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent)
-    };
-    fctx_set_offset(&fctx, word_pos);
-    char textdraw[15];
-    snprintf(textdraw, sizeof(textdraw), "%s", settings.LogoText);
-    fctx_draw_string(&fctx, textdraw, FCTX_Font, GTextAlignmentRight, FTextAnchorTop);
-    fctx_end_fill(&fctx);
-  }
-  else if (strcmp(settings.HealthLogoWeather, "cf") == 0 && settings.UseWeather) {
-    fctx_begin_fill(&fctx);
-    fctx_set_fill_color(&fctx, settings.TextColor1);
-    fctx_set_text_em_height(&fctx, FCTX_Font, config.info_font_size);
-    FPoint word_pos = {
-      INT_TO_FIXED(bounds.size.w / 2 - config.xOffset),
-      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent)
-    };
-    fctx_set_offset(&fctx, word_pos);
-    char TempToDraw[8];
-    snprintf(TempToDraw, sizeof(TempToDraw), "%s",settings.tempstring);
-    fctx_draw_string(&fctx, TempToDraw, FCTX_Font, GTextAlignmentRight, FTextAnchorTop);
-    fctx_end_fill(&fctx);
-  }
-  else{
-    fctx_begin_fill(&fctx);
-    fctx_set_fill_color(&fctx, settings.TextColor1);
-    fctx_set_text_em_height(&fctx, FCTX_Font, config.info_font_size);
-    FPoint word_pos = {
-      INT_TO_FIXED(bounds.size.w / 2 - config.xOffset),
-      INT_TO_FIXED(bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent)
-    };
-    fctx_set_offset(&fctx, word_pos);
-    fctx_draw_string(&fctx, "", FCTX_Font, GTextAlignmentRight, FTextAnchorTop);
-    fctx_end_fill(&fctx);
-  }
-  
+  fctx_draw_slot(&fctx, bounds, settings.HealthLogoWeather, false);
+  fctx_draw_slot(&fctx, bounds, settings.BottomRight, true);
 
   fctx_deinit_context(&fctx);
+
+  // Battery icons are font glyphs, drawn after fctx is released.
+  // fctx text is anchored at its top; the glyph has ~3px of headroom.
+  int icon_y = bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent - 3;
+  if (settings.HealthLogoWeather == SLOT_BATT_ICON) {
+    draw_battery_icon_left(ctx, bounds.size.w / 2 - config.xOffset, icon_y);
+  }
+  if (settings.BottomRight == SLOT_BATT_ICON) {
+    draw_battery_icon_right(ctx, bounds, bounds.size.w / 2 + config.xOffset, icon_y);
+  }
 
   if (settings.EnableLines) {
     graphics_context_set_antialiased(ctx, true);
@@ -2484,6 +2555,68 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
 
 }
 #else
+// Draws one bottom slot with system fonts. Left slot is right-aligned to
+// centre - xOffset, right slot is left-aligned from centre + xOffset.
+static void draw_slot_system(GContext *ctx, GRect bounds, uint8_t slot, bool right) {
+  int cx = bounds.size.w / 2;
+  int cy = bounds.size.h / 2;
+
+  if (slot == SLOT_BATT_ICON) {
+    int icon_y = cy + config.other_text_font_size + config.yOffsetPercent - 3;
+    if (right) { draw_battery_icon_right(ctx, bounds, cx + config.xOffset - 1, icon_y); }
+    else       { draw_battery_icon_left(ctx, cx - config.xOffset + 1, icon_y); }
+    return;
+  }
+
+  graphics_context_set_text_color(ctx, settings.TextColor1);
+
+  if (slot == SLOT_BATT_VALUE) {
+    char battperc[6];
+    snprintf(battperc, sizeof(battperc), "%d", battery_state_service_peek().charge_percent);
+
+    GSize batt_size = graphics_text_layout_get_content_size(
+      battperc, medium_font, GRect(0, 0, bounds.size.w, config.info_font_size + 4),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft);
+    GSize percent_size = graphics_text_layout_get_content_size(
+      "%", small_font, GRect(0, 0, bounds.size.w, 16),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft);
+
+    int total_batt_w = batt_size.w + 2 + percent_size.w;
+    int shift = PBL_IF_ROUND_ELSE(22, 19);           // right slot: original position
+    int batt_left = right ? cx - total_batt_w / 2 + shift
+                          : cx - total_batt_w / 2 - shift;   // left slot: mirror image
+    int batt_y = cy + config.other_text_font_size + config.yOffsetBattery - 8;
+
+    graphics_draw_text(ctx, battperc, medium_font,
+      GRect(batt_left, batt_y, batt_size.w, batt_size.h),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+    graphics_draw_text(ctx, "%", small_font,
+      GRect(batt_left + batt_size.w + 2, batt_y + batt_size.h - percent_size.h - 5,
+            percent_size.w, percent_size.h),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+    return;
+  }
+
+  const char *text = NULL;
+  if (slot == SLOT_STEPS) {
+    #ifndef PBL_PLATFORM_APLITE
+    if (settings.HealthOn) { text = s_current_steps_buffer; }
+    #endif
+  } else if (slot == SLOT_TEXT) {
+    text = settings.LogoText;
+  } else if (slot == SLOT_TEMP) {
+    if (settings.UseWeather) { text = settings.tempstring; }
+  }
+  if (!text || !text[0]) { return; }
+
+  int text_y = cy + config.other_text_font_size + config.yOffsetPercent - 4;
+  GRect rect = right
+    ? GRect(cx + config.xOffset - 1, text_y, bounds.size.w - (cx + config.xOffset - 1), 16)
+    : GRect(0, text_y, cx - config.xOffset + 1, 16);
+  graphics_draw_text(ctx, text, small_font, rect, GTextOverflowModeWordWrap,
+                     right ? GTextAlignmentLeft : GTextAlignmentRight, NULL);
+}
+
 static void fg_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   #ifndef PBL_ROUND
@@ -2581,7 +2714,7 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
   }
 
   if (settings.EnableDate) {
-    const char *sys_locale = i18n_get_system_locale();
+    const char *sys_locale = date_locale();
     char weekdaydraw[10];
     fetchwday(s_weekday, sys_locale, weekdaydraw);
     char datenow[3];
@@ -2592,11 +2725,11 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
     int date_y = cy - config.other_text_font_size - config.yOffset - 14 - 3;
 
     GRect weekday_rect = GRect(0 - 11, date_y, cx - PBL_IF_ROUND_ELSE(config.xOffset+3, config.xOffset), 16);
-    graphics_draw_text(ctx, weekdaydraw, small_font, weekday_rect,
+    graphics_draw_text(ctx, settings.SwapDayMonth ? monthnow : weekdaydraw, small_font, weekday_rect,
                        GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
 
     GRect month_rect = GRect(cx + PBL_IF_ROUND_ELSE(config.xOffset+3, config.xOffset) + 11, date_y, bounds.size.w / 2, 16);
-    graphics_draw_text(ctx, monthnow, small_font, month_rect,
+    graphics_draw_text(ctx, settings.SwapDayMonth ? weekdaydraw : monthnow, small_font, month_rect,
                        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
 
     GRect date_rect = GRect(0, date_y - 10, bounds.size.w, 16);
@@ -2604,62 +2737,8 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   }
 
-  if (settings.EnableBattery) {
-    int battery_level = battery_state_service_peek().charge_percent;
-    char battperc[6];
-    snprintf(battperc, sizeof(battperc), "%d", battery_level);
-
-    GSize batt_size = graphics_text_layout_get_content_size(
-      battperc, medium_font,
-      GRect(0, 0, bounds.size.w, config.info_font_size + 4),
-      GTextOverflowModeWordWrap, GTextAlignmentLeft
-    );
-    GSize percent_size = graphics_text_layout_get_content_size(
-      "%", small_font,
-      GRect(0, 0, bounds.size.w, 16),
-      GTextOverflowModeWordWrap, GTextAlignmentLeft
-    );
-
-    int total_batt_w = batt_size.w + 2 + percent_size.w;
-    int batt_left = cx - total_batt_w / 2 + PBL_IF_ROUND_ELSE(22,19);
-    int batt_y = cy + config.other_text_font_size + config.yOffsetBattery - 8;
-
-    graphics_draw_text(ctx, battperc, medium_font,
-      GRect(batt_left, batt_y, batt_size.w, batt_size.h),
-      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
-
-    graphics_draw_text(ctx, "%", small_font,
-      GRect(batt_left + batt_size.w + 2, batt_y + batt_size.h - percent_size.h - 5,
-            percent_size.w, percent_size.h),
-      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
-  }
-
-  #ifndef PBL_PLATFORM_APLITE
-  if (settings.HealthOn) {
-    int logo_y = cy + config.other_text_font_size + config.yOffsetPercent - 4;
-    GRect logo_rect = GRect(0, logo_y, cx - config.xOffset + 1, 16);
-    graphics_draw_text(ctx, s_current_steps_buffer, small_font, logo_rect,
-                       GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
-  }
-  else if (settings.EnableLogo) {
-    char textdraw[15];
-    snprintf(textdraw, sizeof(textdraw), "%s", settings.LogoText);
-    int logo_y = cy + config.other_text_font_size + config.yOffsetPercent - 4;
-    GRect logo_rect = GRect(0, logo_y, cx - config.xOffset + 1, 16);
-    graphics_draw_text(ctx, textdraw, small_font, logo_rect,
-                       GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
-  }
-  #endif
-  #ifdef PBL_PLATFORM_APLITE
-   if (settings.EnableLogo) {
-        char textdraw[15];
-        snprintf(textdraw, sizeof(textdraw), "%s", settings.LogoText);
-        int logo_y = cy + config.other_text_font_size + config.yOffsetPercent - 4;
-        GRect logo_rect = GRect(0, logo_y, cx - config.xOffset + 1, 16);
-        graphics_draw_text(ctx, textdraw, small_font, logo_rect,
-                          GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
-  }
-  #endif
+  draw_slot_system(ctx, bounds, settings.HealthLogoWeather, false);
+  draw_slot_system(ctx, bounds, settings.BottomRight, true);
 
   if (settings.EnableLines) {
     graphics_context_set_antialiased(ctx, true);
@@ -2717,6 +2796,7 @@ static void prv_window_load(Window *window) {
    medium_font = fonts_get_system_font(FONT_KEY_GOTHIC_24);
    FontWeatherIcons = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_WEATHERICONS_20));
    FontWeatherIconsSmall = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_WEATHERICONS_10));
+   FontBatteryIcon = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DRIPICONS_18));
   #elif defined (PBL_PLATFORM_EMERY) || defined (PBL_PLATFORM_GABBRO)
    FCTX_Font = ffont_create_from_resource(RESOURCE_ID_DIN_CONDENSED_FFONT);
    small_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
@@ -2724,6 +2804,7 @@ static void prv_window_load(Window *window) {
    medium_font = fonts_get_system_font(FONT_KEY_GOTHIC_28);
    FontWeatherIcons = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_WEATHERICONS_31));
    FontWeatherIconsSmall = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_WEATHERICONS_12));
+   FontBatteryIcon = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DRIPICONS_24));
   // #else //basalt and chalk
   //  aplite_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIN_CON_APLITE_38));
   //  //FCTX_Font = ffont_create_from_resource(RESOURCE_ID_DIN_CONDENSED_FFONT);
@@ -2752,7 +2833,7 @@ static void prv_window_load(Window *window) {
     battery_state_service_subscribe(battery_callback);
     connection_service_subscribe((ConnectionHandlers){ .pebble_app_connection_handler = bluetooth_callback });
 
-  if (settings.UseWeather) {
+  if (settings.ShakeWeather) {
     s_timeout_timer = app_timer_register(31000, weather_timeout_handler, NULL);
     accel_tap_service_subscribe(accel_tap_handler);
     #ifdef DEBUG
@@ -2847,6 +2928,7 @@ static void prv_window_unload(Window *window) {
   fonts_unload_custom_font(FontBTQTIcons);
   fonts_unload_custom_font(FontWeatherIcons);
   fonts_unload_custom_font(FontWeatherIconsSmall);
+  fonts_unload_custom_font(FontBatteryIcon);
   #if defined PBL_BW || defined PBL_PLATFORM_BASALT || defined PBL_PLATFORM_CHALK
   fonts_unload_custom_font(aplite_font);
   #else

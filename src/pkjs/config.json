@@ -1,0 +1,582 @@
+[
+  {
+    "type": "heading",
+    "defaultValue": "Hybrid"
+  },
+  {
+    "type": "text",
+    "defaultValue": "<p>by astosia</p>"
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Features"
+      },
+      {
+        "type": "select",
+        "messageKey": "HealthLogoWeather",
+        "defaultValue": "ds",
+        "label": "Bottom left front screen",
+        "options": [
+          {
+            "label": "Step count",
+            "value": "st"
+          },
+          {
+            "label": "Custom Text",
+            "value": "tx"
+          },
+          {
+            "label": "Current Temperature",
+            "value": "cf"
+          }
+        ]
+      },
+      {
+        "type": "toggle",
+        "messageKey": "UseWeather",
+        "label": "Show Weather data.",
+        "description": "current temperature visible in bottom left if selected above. Shake watch (and shake again) for more weather info",
+        "defaultValue": true
+      },
+      {
+        "type": "input",
+        "messageKey": "LogoText",
+        "defaultValue": "HYBRID",
+        "label": "Custom Text",
+        "description": "Maximum 6 characters, visible in bottom left if Custom Text is selected above",
+        "attributes": {
+          "placeholder": "HYBRID"
+        }
+      },
+      {
+        "type": "toggle",
+        "label": "Watchface Style",
+        "messageKey": "ForegroundShape",
+        "description": "Off = Rectangular, On = Round",
+        "capabilities": [
+          "RECT"
+        ],
+        "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "label": "Digital Time visible",
+        "messageKey": "ShowTime",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "messageKey": "showlocalAMPM",
+        "label": "Show AM or PM",
+        "description": "Applies when 12h time selected in watch settings",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Add leading zero to 12h time",
+        "messageKey": "AddZero12h",
+        "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "label": "Remove leading zero from 24h time",
+        "messageKey": "RemoveZero24h",
+        "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "label": "Date visible",
+        "messageKey": "EnableDate",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Battery Value visible",
+        "messageKey": "EnableBattery",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Foreground lines visible",
+        "messageKey": "EnableLines",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Major Ticks Visible",
+        "messageKey": "EnableMajorTick",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Minor Ticks Visible",
+        "messageKey": "EnableMinorTick",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Seconds hand visible",
+        "messageKey": "EnableSecondsHand",
+        "defaultValue": true
+      },
+      {
+        "type": "slider",
+        "messageKey": "SecondsVisibleTime",
+        "defaultValue": 135,
+        "label": "Seconds hand visibility",
+        "description": "Visibility of seconds hand, in seconds. Timer starts after a tap, shake, or watchface launch. Setting to max value will keep the seconds hand permanently on",
+        "min": 15,
+        "max": 135,
+        "step": 15
+      },
+      {
+        "type": "toggle",
+        "messageKey": "VibeOn",
+        "label": "Vibrate on Bluetooth disconnect during Quiet Time",
+        "description": "If set to off, will still vibrate on disconnect, but not during quiet time",
+        "defaultValue": false
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  },
+  {
+    "type": "section",
+    "capabilities": [
+      "COLOR"
+    ],
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Colours"
+      },
+      {
+        "type": "toggle",
+        "label": "Shadow on",
+        "messageKey": "ShadowOn",
+        "capabilities": [
+          "COLOR"
+        ],
+        "description": "Only shows if Round shape is selected",
+        "defaultValue": true
+      },
+      {
+        "type": "radiogroup",
+        "messageKey": "ThemeSelect",
+        "defaultValue": "wh",
+        "label": "COLOUR THEME SELECT",
+        "options": [
+          {
+            "label": "White Background",
+            "value": "wh"
+          },
+          {
+            "label": "Black Background",
+            "value": "bl"
+          },
+          {
+            "label": "Blue Background",
+            "value": "bu"
+          },
+          {
+            "label": "Purple Background",
+            "value": "pl"
+          },
+          {
+            "label": "Black & Green",
+            "value": "gr"
+          },
+          {
+            "label": "Custom Colours",
+            "value": "cu"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "defaultValue": "Custom Colours"
+      },
+      {
+        "type": "color",
+        "label": "Background Colour",
+        "messageKey": "BackgroundColor1",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Foreground Colour",
+        "messageKey": "FGColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Foreground Lines Colour",
+        "messageKey": "LineColor",
+        "defaultValue": "555555"
+      },
+      {
+        "type": "color",
+        "label": "Digital Time, Date, Battery & Text Colour",
+        "messageKey": "TextColor1",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Quiet Time and Bluetooth Icon Colour",
+        "messageKey": "BTQTColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Shadow Colour",
+        "messageKey": "ShadowColor",
+        "capabilities": [
+          "ROUND"
+        ],
+        "defaultValue": "AAAAAA"
+      },
+      {
+        "type": "color",
+        "label": "Major Tickmark Colour",
+        "messageKey": "MajorTickColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Minor Tickmark Colour",
+        "messageKey": "MinorTickColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Border Colour",
+        "messageKey": "HoursHandBorderColor",
+        "defaultValue": "00AA55"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Fill Colour",
+        "messageKey": "HoursHandColor",
+        "defaultValue": "00AA55"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Border Color",
+        "messageKey": "MinutesHandBorderColor",
+        "defaultValue": "FF0000"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Fill Color",
+        "messageKey": "MinutesHandColor",
+        "defaultValue": "FF0000"
+      },
+      {
+        "type": "color",
+        "label": "Second Hand Colour",
+        "messageKey": "SecondsHandColor",
+        "defaultValue": "00AA55"
+      },
+      {
+       "type": "color",
+       "messageKey": "UVArcColor",
+       "defaultValue": "0xAAAAAA",
+       "label": "UV and Rain Arc background colour",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVMaxColor",
+       "defaultValue": "0xFFFFFF",
+       "label": "UV Index Max and Rain Chance Today Bar",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVNowColor",
+       "defaultValue": "0x555555",
+       "label": "UV Index Now and Rain Chance Next Hour Marks",
+       "allowGray":true
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "capabilities": [
+      "BW"
+    ],
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Colours"
+      },
+      {
+        "type": "radiogroup",
+        "messageKey": "BWThemeSelect",
+        "defaultValue": "wh",
+        "label": "COLOUR THEME SELECT",
+        "options": [
+          {
+            "label": "White Background",
+            "value": "wh"
+          },
+          {
+            "label": "Black Background",
+            "value": "bl"
+          },
+          {
+            "label": "Grey Background",
+            "value": "gy"
+          },
+          {
+            "label": "Custom Colours",
+            "value": "cu"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "defaultValue": "Custom Colours"
+      },
+      {
+        "type": "color",
+        "label": "Background Colour",
+        "messageKey": "BackgroundColor1",
+        "defaultValue": "FFFFFF",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Foreground Colour",
+        "messageKey": "FGColor",
+        "defaultValue": "000000",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Foreground Lines Colour",
+        "messageKey": "LineColor",
+        "defaultValue": "555555"
+      },
+      {
+        "type": "color",
+        "label": "Digital Time, Date, Battery & Text Colour",
+        "messageKey": "TextColor1",
+        "defaultValue": "FFFFFF",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Tickmark Colour",
+        "messageKey": "TickColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Border Colour",
+        "messageKey": "HoursHandBorderColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Fill Colour",
+        "messageKey": "HoursHandColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Border Color",
+        "messageKey": "MinutesHandBorderColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Fill Color",
+        "messageKey": "MinutesHandColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Second Hand Colour",
+        "messageKey": "SecondsHandColor",
+        "defaultValue": "000000"
+      },
+      {
+       "type": "color",
+       "messageKey": "UVArcColor",
+       "capabilities":["MICROPHONE"],
+       "defaultValue": "0xAAAAAA",
+       "label": "UV and Rain Arc background colour",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVMaxColor",
+       "capabilities":["MICROPHONE"],
+       "defaultValue": "0xFFFFFF",
+       "label": "UV Index Max and Rain Chance Today Bar",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVNowColor",
+       "capabilities":["MICROPHONE"],
+       "defaultValue": "0x555555",
+       "label": "UV Index Now and Rain Chance Next Hour Marks",
+       "allowGray":true
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Weather settings"
+      },
+      {
+        "type": "select",
+        "messageKey": "WeatherProv",
+        "defaultValue": "ds",
+        "label": "Weather Provider",
+        "options": [
+          {
+            "label": "Open-Meteo",
+            "value": "ds"
+          },
+          {
+            "label": "OpenWeatherMap",
+            "value": "owm"
+          }
+        ]
+      },
+      {
+        "type": "input",
+        "messageKey": "Lat",
+        "label": "Manual Location - Latitude",
+        "attributes": {
+          "placeholder": "eg: 51.4769 (leave blank to use GPS)"
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "Long",
+        "label": "Manual Location - Longitude",
+        "description": "Leave both blank to use GPS location for sunrise & sunset times and weather. You can use <a href =https://www.google.com/maps>Google Maps</a> or <a href =https://www.openstreetmap.org/>OpenStreetMap</a> to find latitude & longitude.",
+        "attributes": {
+          "placeholder": "eg: -0.0005 (leave blank to use GPS)"
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "APIKEY_User",
+        "defaultValue": "",
+        "label": "OWM API Key",
+        "description": "Weather data uses Open-Meteo by default which does not require an API key.  If you prefer OpenWeatherMap, you can <a href =https://home.openweathermap.org/users/sign_up/>register for a free personal API key here</a>.",
+        "attributes": {
+          "placeholder": "Paste OpenWeatherMap API Key here, leave blank for Open-Meteo"
+        }
+      },
+      {
+        "type": "slider",
+        "messageKey": "UpSlider",
+        "defaultValue": 30,
+        "label": "Weather update frequency (minutes)",
+        "description": "More frequent requests will drain your phone battery more quickly",
+        "min": 15,
+        "max": 120,
+        "step": 15
+      },
+      {
+        "type": "toggle",
+        "messageKey": "WeatherUnit",
+        "label": "Temperature in °C (off) or °F (on)",
+        "defaultValue": false
+      },
+      {
+        "type": "select",
+        "messageKey": "RainUnit",
+        "capabilities":["MICROPHONE"],
+        "label": "Rain quantity unit to display",
+        "description": "Rain displays as amount of rain (in mm or inches) & chance of rain in next hour",
+        "defaultValue": "mm",
+        "options": [
+          {
+            "label": "millimeters",
+            "value": "mm"
+          },
+          {
+            "label": "inches",
+            "value": "in"
+          }
+        ]
+      },
+      {
+       "type": "select",
+          "messageKey": "PressureUnit",
+          "capabilities":["MICROPHONE"],
+          "label": "Barometric Pressure Unit",
+          "defaultValue": "mb",
+              "options": [
+            {
+              "label": "millibars (mb)",
+              "value": "mb"
+            },
+            {
+              "label": "inches of Mercury (Hg)",
+              "value": "hg"
+            },
+            {
+              "label": "millimeters of Mercury (mmHg)",
+              "value": "tor"
+            },
+            {
+              "label": "Pascals (P)",
+              "value": "ap"
+            },
+            {
+              "label": "standard atmospheric (atm)",
+              "value": "atm"
+            }
+            ]
+      },
+      {
+        "type": "select",
+        "messageKey": "WindUnit",
+        "label": "Wind speed unit to display",
+        "defaultValue": "kts",
+        "options": [
+          {
+            "label": "knots",
+            "value": "kts"
+          },
+          {
+            "label": "miles per hour",
+            "value": "mph"
+          },
+          {
+            "label": "metres per second",
+            "value": "ms"
+          },
+          {
+            "label": "kilometres per hour",
+            "value": "kph"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  }
+]

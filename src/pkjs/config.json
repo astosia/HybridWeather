@@ -1,11 +1,69 @@
 [
   {
     "type": "heading",
-    "defaultValue": "Hybrid"
+    "defaultValue": "Hybrid Weather by astosia"
   },
   {
-    "type": "text",
-    "defaultValue": "<p>by astosia</p>"
+    "type": "select",
+    "messageKey": "PreviewPlatformOverride",
+    "label": "Preview watch model<br>(if preview looks wrong)",
+    "defaultValue": "auto",
+    "options": [
+      {
+        "label": "Auto-detect",
+        "value": "auto"
+      },
+      {
+        "label": "Pebble / Steel",
+        "value": "aplite"
+      },
+      {
+        "label": "Time / Time Steel",
+        "value": "basalt"
+      },
+      {
+        "label": "Time Round",
+        "value": "chalk"
+      },
+      {
+        "label": "P2 HR/SE",
+        "value": "diorite"
+      },
+      {
+        "label": "Time 2",
+        "value": "emery"
+      },
+      {
+        "label": "P2 Duo",
+        "value": "flint"
+      },
+      {
+        "label": "Round 2",
+        "value": "gabbro"
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "messageKey": "PreviewTimeFormatOverride",
+    "label": "12h/24h Time Preview<br>(does NOT change the watch)",
+    "description": "Format is set on watch (Settings->Date & Time)",
+    "defaultValue": "auto",
+    "options": [
+      {
+        "label": "12-hour",
+        "value": "12h"
+      },
+      {
+        "label": "24-hour",
+        "value": "24h"
+      }
+    ]
+  },
+  {
+        "type": "text",
+        "id": "WATCH_PREVIEW",
+        "defaultValue": ""
   },
   {
     "type": "section",
@@ -18,7 +76,7 @@
         "type": "select",
         "messageKey": "TopRow",
         "defaultValue": 0,
-        "label": "Top row front screen",
+        "label": "Date Layout",
         "options": [
           {
             "label": "Day - Date - Month",
@@ -29,7 +87,7 @@
             "value": 1
           },
           {
-            "label": "Empty",
+            "label": "Hide Date",
             "value": 2
           }
         ]
@@ -92,9 +150,9 @@
       },
       {
         "type": "select",
-        "messageKey": "HealthLogoWeather",
+        "messageKey": "BottomLeft",
         "defaultValue": 1,
-        "label": "Bottom left front screen",
+        "label": "Bottom left",
         "options": [
           {
             "label": "Step count",
@@ -105,7 +163,7 @@
             "value": 1
           },
           {
-            "label": "Current Temperature",
+            "label": "Current Temp",
             "value": 2
           },
           {
@@ -126,7 +184,7 @@
         "type": "select",
         "messageKey": "BottomRight",
         "defaultValue": 3,
-        "label": "Bottom right front screen",
+        "label": "Bottom right",
         "options": [
           {
             "label": "Step count",
@@ -221,6 +279,11 @@
         "defaultValue": false
       },
       {
+        "type": "text",
+        "id": "WATCH_PREVIEW_2",
+        "defaultValue": ""
+      },
+      {
         "type": "toggle",
         "label": "Digital Time visible",
         "messageKey": "ShowTime",
@@ -304,7 +367,9 @@
         "messageKey": "ShakeWeather",
         "label": "More weather on shake",
         "description": "Shake the watch (and shake again) for 2 more weather screens",
-         "capabilities": ["NOT_PLATFORM_APLITE"],
+        "capabilities": [
+          "NOT_PLATFORM_APLITE"
+        ],
         "defaultValue": true
       },
       {
@@ -312,7 +377,9 @@
         "messageKey": "ShakeWeather",
         "label": "More weather on shake",
         "description": "Shake the watch for more weather info",
-         "capabilities": ["PLATFORM_APLITE"],
+        "capabilities": [
+          "PLATFORM_APLITE"
+        ],
         "defaultValue": true
       }
     ]
@@ -332,6 +399,11 @@
         "defaultValue": "Colours"
       },
       {
+        "type": "text",
+        "id": "WATCH_PREVIEW_3",
+        "defaultValue": ""
+      },
+      {
         "type": "toggle",
         "label": "Shadow on",
         "messageKey": "ShadowOn",
@@ -348,23 +420,23 @@
         "label": "COLOUR THEME SELECT",
         "options": [
           {
-            "label": "White Background",
+            "label": "Black on White",
             "value": 0
           },
           {
-            "label": "Black Background",
+            "label": "Black",
             "value": 1
           },
           {
-            "label": "Blue Background",
+            "label": "Blue",
             "value": 2
           },
           {
-            "label": "Purple Background",
+            "label": "Black on Purple",
             "value": 3
           },
           {
-            "label": "Black & Green",
+            "label": "Green on Black",
             "value": 4
           },
           {
@@ -386,7 +458,7 @@
       },
       {
         "type": "color",
-        "label": "Foreground Colour",
+        "label": "Foreground (FG) Colour",
         "messageKey": "FGColor",
         "defaultValue": "FFFFFF"
       },
@@ -398,12 +470,6 @@
       },
       {
         "type": "color",
-        "label": "Digital Time, Date, Battery & Text Colour",
-        "messageKey": "TextColor1",
-        "defaultValue": "000000"
-      },
-      {
-        "type": "color",
         "label": "Quiet Time and Bluetooth Icon Colour",
         "messageKey": "BTQTColor",
         "defaultValue": "000000"
@@ -412,10 +478,8 @@
         "type": "color",
         "label": "Shadow Colour",
         "messageKey": "ShadowColor",
-        "capabilities": [
-          "ROUND"
-        ],
-        "defaultValue": "AAAAAA"
+        "defaultValue": "AAAAAA",
+        "description": "Used when Shadow is on and the face is round"
       },
       {
         "type": "color",
@@ -428,6 +492,11 @@
         "label": "Minor Tickmark Colour",
         "messageKey": "MinorTickColor",
         "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "text",
+        "id": "WATCH_PREVIEW_4",
+        "defaultValue": ""
       },
       {
         "type": "color",
@@ -443,27 +512,33 @@
       },
       {
         "type": "color",
-        "label": "Minute Hand Border Color",
+        "label": "Minute Hand Border Colour",
         "messageKey": "MinutesHandBorderColor",
         "defaultValue": "FF0000"
       },
       {
         "type": "color",
-        "label": "Minute Hand Fill Color",
+        "label": "Minute Hand Fill Colour",
         "messageKey": "MinutesHandColor",
         "defaultValue": "FF0000"
       },
       {
         "type": "color",
-        "label": "Second Hand Colour",
+        "label": "Second Hand & FG Border Colour",
         "messageKey": "SecondsHandColor",
         "defaultValue": "00AA55"
       },
       {
         "type": "color",
+        "label": "Digital Time, Icons & Text Colour",
+        "messageKey": "TextColor1",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
         "messageKey": "UVArcColor",
         "defaultValue": "0xAAAAAA",
-        "label": "UV and Rain Arc background colour",
+        "label": "UV and Rain Arc Background Colour",
         "allowGray": true
       },
       {
@@ -479,6 +554,31 @@
         "defaultValue": "0x555555",
         "label": "UV Index Now and Rain Chance Next Hour Marks",
         "allowGray": true
+      },
+      {
+        "type": "heading",
+        "id": "UV_RAIN_TEXT_EMERY_GABBRO",
+        "capabilities": [
+          "NOT_PLATFORM_BASALT",
+          "NOT_PLATFORM_CHALK"
+        ],
+        "defaultValue": "Number values inside arcs are UV Index Max forecast today (left), rain amount next hour (top right), and total rainfall amount today (bottom right)",
+        "size": 5
+      },
+      {
+        "type": "heading",
+        "id": "UV_RAIN_TEXT_SMALL",
+        "capabilities": [
+          "NOT_PLATFORM_EMERY",
+          "NOT_PLATFORM_GABBRO"
+        ],
+        "defaultValue": "Number values inside arcs are UV Index Max forecast today (left), and total rainfall amount forecast today (right)",
+        "size": 5
+      },
+      {
+        "type": "text",
+        "id": "UV_RAIN_PREVIEW",
+        "defaultValue": ""
       }
     ]
   },
@@ -493,21 +593,26 @@
         "defaultValue": "Colours"
       },
       {
+        "type": "text",
+        "id": "WATCH_PREVIEW_5",
+        "defaultValue": ""
+      },
+      {
         "type": "select",
         "messageKey": "BWThemeSelect",
         "defaultValue": 0,
         "label": "COLOUR THEME SELECT",
         "options": [
           {
-            "label": "White Background",
+            "label": "Black on White",
             "value": 0
           },
           {
-            "label": "Black Background",
+            "label": "White on Black",
             "value": 1
           },
           {
-            "label": "Grey Background",
+            "label": "White on Grey",
             "value": 2
           },
           {
@@ -530,7 +635,7 @@
       },
       {
         "type": "color",
-        "label": "Foreground Colour",
+        "label": "Foreground (FG) Colour",
         "messageKey": "FGColor",
         "defaultValue": "000000",
         "allowGray": true
@@ -555,6 +660,11 @@
         "defaultValue": "000000"
       },
       {
+        "type": "text",
+        "id": "WATCH_PREVIEW_6",
+        "defaultValue": ""
+      },
+      {
         "type": "color",
         "label": "Hour Hand Border Colour",
         "messageKey": "HoursHandBorderColor",
@@ -568,19 +678,19 @@
       },
       {
         "type": "color",
-        "label": "Minute Hand Border Color",
+        "label": "Minute Hand Border Colour",
         "messageKey": "MinutesHandBorderColor",
         "defaultValue": "000000"
       },
       {
         "type": "color",
-        "label": "Minute Hand Fill Color",
+        "label": "Minute Hand Fill Colour",
         "messageKey": "MinutesHandColor",
         "defaultValue": "FFFFFF"
       },
       {
         "type": "color",
-        "label": "Second Hand Colour",
+        "label": "Second Hand & FG Border Colour",
         "messageKey": "SecondsHandColor",
         "defaultValue": "000000"
       },
@@ -591,7 +701,7 @@
           "MICROPHONE"
         ],
         "defaultValue": "0xAAAAAA",
-        "label": "UV and Rain Arc background colour",
+        "label": "UV and Rain Arc Background Colour",
         "allowGray": true
       },
       {
@@ -601,7 +711,7 @@
           "MICROPHONE"
         ],
         "defaultValue": "0xFFFFFF",
-        "label": "UV Index Max and Rain Chance Today Bar",
+        "label": "UV Index Max Today (0-10+) and Rain Chance Today (0-100%) Bars",
         "allowGray": true
       },
       {
@@ -611,8 +721,25 @@
           "MICROPHONE"
         ],
         "defaultValue": "0x555555",
-        "label": "UV Index Now and Rain Chance Next Hour Marks",
+        "label": "UV Index Now and Rain Chance (%) Next Hour Marks",
         "allowGray": true
+      },
+      {
+        "type": "heading",
+        "defaultValue": "Number values inside arcs are UV Index Max forecast today (left), and total rainfall amount forecast today (right)",
+        "capabilities": [
+          "MICROPHONE"
+        ],
+        "id": "BW_UV_RAIN_TEXT_SMALL",
+        "size": 5
+      },
+      {
+        "type": "text",
+        "id": "BW_UV_RAIN_PREVIEW",
+        "defaultValue": "",
+        "capabilities": [
+          "MICROPHONE"
+        ]
       }
     ]
   },
@@ -645,12 +772,17 @@
         ]
       },
       {
+        "type": "text",
+        "id": "LOCATION_DEBUG",
+        "defaultValue": ""
+      },
+      {
         "type": "input",
         "messageKey": "LocationQuery",
-        "label": "Location",
-        "description": "Start typing a city, place name or postcode/zipcode, then pick from the list. Leave blank to use your phone's GPS location for weather and sunrise & sunset times. Location search data from ©OpenStreetMap (Photon) and GeoNames (Open-Meteo)",
+        "label": "Location - You may have to wait a few seconds for the list to appear & refresh",
+        "description": "Start typing a city, place name or postcode/zipcode, then pick from the list. Leave blank to use your phone's GPS location for weather and sunrise & sunset times. Location search data from ©OpenStreetMap (Photon)",
         "attributes": {
-          "placeholder": "e.g. London, UK (leave empty to use GPS)"
+          "placeholder": "e.g. London, England (leave empty to use GPS)"
         }
       },
       {
@@ -661,11 +793,6 @@
       {
         "type": "input",
         "messageKey": "Long",
-        "defaultValue": ""
-      },
-      {
-        "type": "text",
-        "id": "LOCATION_DEBUG",
         "defaultValue": ""
       },
       {
@@ -691,7 +818,7 @@
       {
         "type": "toggle",
         "messageKey": "WeatherUnit",
-        "label": "Temperature in °C (off) or °F (on)",
+        "label": "Temps in °C (off) or °F (on)",
         "defaultValue": false
       },
       {
@@ -700,8 +827,7 @@
         "capabilities": [
           "MICROPHONE"
         ],
-        "label": "Rain quantity unit to display",
-        "description": "Rain displays as amount of rain (in mm or inches) & chance of rain in next hour",
+        "label": "Rainfall Unit",
         "defaultValue": 0,
         "options": [
           {
@@ -720,7 +846,7 @@
         "capabilities": [
           "MICROPHONE"
         ],
-        "label": "Barometric Pressure Unit",
+        "label": "Baro Pressure Unit",
         "defaultValue": 0,
         "options": [
           {
@@ -748,7 +874,7 @@
       {
         "type": "select",
         "messageKey": "WindUnit",
-        "label": "Wind speed unit to display",
+        "label": "Wind Speed Unit",
         "defaultValue": 0,
         "options": [
           {
@@ -770,6 +896,11 @@
         ]
       }
     ]
+  },
+  {
+        "type": "text",
+        "id": "WATCH_PREVIEW_7",
+        "defaultValue": ""
   },
   {
     "type": "submit",

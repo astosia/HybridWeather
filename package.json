@@ -1,7 +1,7 @@
 {
   "name": "HybridWeather",
   "author": "astosia",
-  "version": "3.9.5",
+  "version": "4.0.0",
   "keywords": [
     "analog",
     "analogue",
@@ -118,7 +118,7 @@
       "MoonPhase",
       "Weathertime",
       "NameLocation",
-      "HealthLogoWeather",
+      "BottomLeft",
       "HealthOn",
       "TickColor",
       "BTQTColor",
@@ -126,7 +126,10 @@
       "TopRow",
       "ShakeWeather",
       "DateLanguage",
-      "LogoTextRight"
+      "LogoTextRight",
+      "LocationQuery",
+      "PreviewPlatformOverride",
+      "PreviewTimeFormatOverride"
     ],
     "resources": {
       "media": [
@@ -204,7 +207,7 @@
         {
           "file": "fonts/DINPro-CondensedMedium2.ttf",
           "name": "FONT_DIN_CON_APLITE_38",
-          "characterRegex": "[0-9:A-ZÀ-ÖØ-öø-ÿ°.%]",
+          "characterRegex": "[0-9:a-zA-ZÀ-ÖØ-öø-ÿ°.%]",
           "targetPlatforms": [
             "aplite",
             "flint",
@@ -216,7 +219,7 @@
         {
           "file": "fonts/DINPro-CondensedMedium2.ttf",
           "name": "FONT_DIN_CON_APLITE_46",
-          "characterRegex": "[0-9:A-ZÀ-ÖØ-öø-ÿ°.%]",
+          "characterRegex": "[0-9:a-zA-ZÀ-ÖØ-öø-ÿ°.%]",
           "targetPlatforms": [
             "chalk"
           ],

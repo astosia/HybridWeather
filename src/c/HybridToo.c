@@ -72,6 +72,11 @@ static int showWeather = 0;
 static char  citistring[15];
 static int s_uvmax_level __attribute__((unused)), s_uvnow_level __attribute__((unused));
 
+// Next-hour rain amount on the third screen: only the larger screens have room for it
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+  #define SHOW_RAIN_1H 1
+#endif
+
 #ifdef PBL_PLATFORM_EMERY
 const UIConfig __attribute__((section(".rodata"))) config = {
   .BTxOffset = 8 + 25,
@@ -301,7 +306,6 @@ const UIConfig __attribute__((section(".rodata"))) config = {
   .uv_icon = {{{39+ 35-26-1+17,71-3+56-34-1+8},{45,20}}}, 
 
   .RainDayValueRect = {{{85+2+18,79-2+4},{20,14}}},     //UVI value daily forecast max
-  .Rain1hValueRect = {{{180,180},{25,25}}},     //UVI value daily forecast max
   .Rain_arc_bounds = {{{93-14+5+18,87-20+8+4},{24,24}}},        //UV arc, right of centre, middle row
   .Rain_arc_bounds_max = {{{93-2-14+5+18,87-2-20+8+4},{24+4,24+4}}},    //UVI daily forecast maximum
   .Rain_arc_bounds_now = {{{93-5-14+5+18,87-5-20+8+4},{24+10,24+10}}},    //UVI Current
@@ -400,7 +404,6 @@ const UIConfig __attribute__((section(".rodata"))) config = {
   .uv_icon = {{{39+ 35-26-1,71-3+56-34-1},{45,20}}}, 
 
   .RainDayValueRect = {{{85+2,79-2},{20,14}}},     //UVI value daily forecast max
-  .Rain1hValueRect = {{{144,168},{25,25}}},     //UVI value daily forecast max
   .Rain_arc_bounds = {{{93-14+5,87-20+8},{24,24}}},        //UV arc, right of centre, middle row
   .Rain_arc_bounds_max = {{{93-2-14+5,87-2-20+8},{24+4,24+4}}},    //UVI daily forecast maximum
   .Rain_arc_bounds_now = {{{93-5-14+5,87-5-20+8},{24+10,24+10}}},    //UVI Current
@@ -815,12 +818,12 @@ static void prv_default_settings(void) {
   settings.EnableSecondsHand = true;
   settings.SecondsVisibleTime = 135;
   settings.EnableDate = true;
-  settings.BottomRight = SLOT_BATT_VALUE;
+  settings.BottomRight = SLOT_BATT_VALUE;  //battery % value is default
   settings.SwapDayMonth = false;
   settings.DateLanguage[0] = '\0';   // automatic
   settings.EnableBatteryLine = true;
   settings.EnableLogo = true;
-  settings.HealthLogoWeather = SLOT_BATT_ICON;
+  settings.BottomLeft = SLOT_TEXT; // Custom Text is default
   settings.BackgroundColor1 = GColorWhite;
   #if PBL_COLOR
   settings.ShadowColor = GColorLightGray;
@@ -1247,7 +1250,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   Tuple *bottomright_t        = dict_find(iter, MESSAGE_KEY_BottomRight);
   Tuple *toprow_t             = dict_find(iter, MESSAGE_KEY_TopRow);
   Tuple *datelang_t           = dict_find(iter, MESSAGE_KEY_DateLanguage);
-  Tuple *healthlogoweather_t  = dict_find(iter, MESSAGE_KEY_HealthLogoWeather);
+  Tuple *BottomLeft_t  = dict_find(iter, MESSAGE_KEY_BottomLeft);
   Tuple *logotext_t           = dict_find(iter, MESSAGE_KEY_LogoText);
   Tuple *logotext_right_t     = dict_find(iter, MESSAGE_KEY_LogoTextRight);
   Tuple *bwthemeselect_t      = dict_find(iter, MESSAGE_KEY_BWThemeSelect);
@@ -1404,8 +1407,8 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   }
 
   // Bottom-left / bottom-right slots share the same set of options
-  if (healthlogoweather_t) {
-    settings.HealthLogoWeather = slot_from_tuple(healthlogoweather_t, SLOT_TEMP);
+  if (BottomLeft_t) {
+    settings.BottomLeft = slot_from_tuple(BottomLeft_t, SLOT_TEMP);
     settings_changed = true;
   }
   if (bottomright_t) {
@@ -1436,8 +1439,8 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
   }
 
   // Health is needed if either slot shows the step count
-  if (healthlogoweather_t || bottomright_t) {
-    settings.HealthOn = settings.HealthLogoWeather == SLOT_STEPS ||
+  if (BottomLeft_t || bottomright_t) {
+    settings.HealthOn = settings.BottomLeft == SLOT_STEPS ||
                         settings.BottomRight == SLOT_STEPS;
     health_service_events_unsubscribe();               // avoid double-subscribing
     if (settings.HealthOn) {
@@ -1901,8 +1904,8 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
 
   // Weather data is fetched automatically when it's needed: current temperature
   // in either bottom slot, or the extra weather screens on shake.
-  if (healthlogoweather_t || bottomright_t || shakeweather_t) {
-    settings.UseWeather = settings.HealthLogoWeather == SLOT_TEMP ||
+  if (BottomLeft_t || bottomright_t || shakeweather_t) {
+    settings.UseWeather = settings.BottomLeft == SLOT_TEMP ||
                           settings.BottomRight == SLOT_TEMP ||
                           settings.ShakeWeather;
     if (settings.ShakeWeather) {
@@ -2211,7 +2214,9 @@ static void weather2_update_proc(Layer *layer, GContext *ctx) {
   GRect uv_icon = config.uv_icon[0];
 
   GRect RainDayValueRect = config.RainDayValueRect[0];
+  #ifdef SHOW_RAIN_1H
   GRect Rain1hValueRect = config.Rain1hValueRect[0];
+  #endif
   GRect Rain_arc_bounds = config.Rain_arc_bounds[0];
   GRect Rain_arc_bounds_max = config.Rain_arc_bounds_max[0];
   GRect Rain_arc_bounds_now = config.Rain_arc_bounds_now[0];
@@ -2338,7 +2343,9 @@ static void weather2_update_proc(Layer *layer, GContext *ctx) {
              int s_rainmin_level = settings.popmin;
              int s_rainnow_level = settings.popstring;  //prob rain in next hour
              int s_rainday_level = settings.rainfore;  //raistring is rain in the next hour, rainfore is the amount in next day, value in the circle 
+             #ifdef SHOW_RAIN_1H
              int s_rain1h_level = settings.rainstring;
+             #endif
 
                     
                     graphics_context_set_fill_color(ctx, settings.UVArcColor);
@@ -2372,17 +2379,21 @@ static void weather2_update_proc(Layer *layer, GContext *ctx) {
                       snprintf(RainValueToDraw, sizeof(RainValueToDraw), "%d", (s_rainday_level + 5) / 10);
                     }
 
+                    #ifdef SHOW_RAIN_1H
                     char Rain1hToDraw [9];
                     if (s_rain1h_level < 10) {
                       snprintf(Rain1hToDraw, sizeof(Rain1hToDraw), "%d.%d", s_rain1h_level / 10, s_rain1h_level % 10);
                     } else {
                       snprintf(Rain1hToDraw, sizeof(Rain1hToDraw), "%d", (s_rain1h_level + 5) / 10);
                     }
+                    #endif
 
                       graphics_context_set_text_color(ctx,settings.TextColor1);
 
                       graphics_draw_text(ctx, RainValueToDraw, small_font, RainDayValueRect, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-                      graphics_draw_text(ctx, Rain1hToDraw, small_font, Rain1hValueRect, GTextOverflowModeFill, GTextAlignmentCenter, NULL);             
+                      #ifdef SHOW_RAIN_1H
+                      graphics_draw_text(ctx, Rain1hToDraw, small_font, Rain1hValueRect, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+                      #endif
 
 }
 #endif
@@ -2589,7 +2600,7 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
     fctx_end_fill(&fctx);
   }
  
-  fctx_draw_slot(&fctx, bounds, settings.HealthLogoWeather, false);
+  fctx_draw_slot(&fctx, bounds, settings.BottomLeft, false);
   fctx_draw_slot(&fctx, bounds, settings.BottomRight, true);
 
   fctx_deinit_context(&fctx);
@@ -2597,7 +2608,7 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
   // Battery icons are font glyphs, drawn after fctx is released.
   // fctx text is anchored at its top; the glyph has ~3px of headroom.
   int icon_y = bounds.size.h / 2 + config.other_text_font_size + config.yOffsetPercent - 3;
-  if (settings.HealthLogoWeather == SLOT_BATT_ICON) {
+  if (settings.BottomLeft == SLOT_BATT_ICON) {
     draw_battery_icon_left(ctx, bounds.size.w / 2 - config.xOffset, icon_y);
   }
   if (settings.BottomRight == SLOT_BATT_ICON) {
@@ -2837,7 +2848,7 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   }
 
-  draw_slot_system(ctx, bounds, settings.HealthLogoWeather, false);
+  draw_slot_system(ctx, bounds, settings.BottomLeft, false);
   draw_slot_system(ctx, bounds, settings.BottomRight, true);
 
   if (settings.EnableLines) {

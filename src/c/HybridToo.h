@@ -33,7 +33,7 @@ typedef struct ClaySettings {
   bool EnableLogo;
   uint8_t VibeMode;   // 0 = respect Quiet Time, 1 = always, 2 = never
   int Font;
-  uint8_t HealthLogoWeather;   // bottom-left slot, SlotOption
+  uint8_t BottomLeft;   // bottom-left slot, SlotOption
   GColor BackgroundColor1;
   GColor ShadowColor;
   GColor TextColor1;

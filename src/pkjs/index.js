@@ -492,7 +492,8 @@ var messageKeys = require('message_keys');
 // 512-byte inbox, which a long location name could otherwise overflow.
 var PHONE_ONLY_KEYS = [
   'LocationQuery', 'Lat', 'Long', 'APIKEY_User', 'WeatherProv',
-  'WeatherUnit', 'RainUnit', 'PressureUnit', 'WindUnit'
+  'WeatherUnit', 'RainUnit', 'PressureUnit', 'WindUnit',
+  'PreviewPlatformOverride', 'PreviewTimeFormatOverride'   // only change the preview on the settings page
 ];
 
 Pebble.addEventListener('showConfiguration', function(e) {
@@ -1060,14 +1061,14 @@ function getinfo() {
 // or if the extra weather screens on shake are enabled.
 function weatherWanted(cfg) {
   var TEMP = 2;  // "Current Temperature" in the bottom slot dropdowns
-  return Number(cfg.HealthLogoWeather) === TEMP || Number(cfg.BottomRight) === TEMP || !!cfg.ShakeWeather;
+  return Number(cfg.BottomLeft) === TEMP || Number(cfg.BottomRight) === TEMP || !!cfg.ShakeWeather;
 }
 
 // ─── Numeric dropdown values ─────────────────────────────────────────────────
 // The config page sends dropdowns as numbers ("0", "1", ...). These lists give
 // the meaning of each number, in order, and must match config.json.
 var OPTION_CODES = {
-  HealthLogoWeather: ['st', 'tx', 'cf', 'bv', 'bi', 'no'],
+  BottomLeft: ['st', 'tx', 'cf', 'bv', 'bi', 'no'],
   BottomRight:       ['st', 'tx', 'cf', 'bv', 'bi', 'no'],
   TopRow:            ['dm', 'md', 'no'],
   ThemeSelect:       ['wh', 'bl', 'bu', 'pl', 'gr', 'cu'],

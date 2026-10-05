@@ -481,7 +481,23 @@ function safeDsIconId(key) {
 //var Clay = require('pebble-clay');
 var Clay = require('@rebble/clay');
 var clayConfig = require('./config');
-var clay = new Clay(clayConfig);
+var customClay = require('./modifications');   // show/hide settings on the config page
+// Settings are sent to the watch by the webviewclosed handler below (not by Clay
+// automatically) so phone-only settings can be left out of the message.
+var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
+var messageKeys = require('message_keys');
+
+// Settings only the phone uses (weather requests). The watch never reads them, so
+// they're not sent: this keeps the settings message small enough for aplite's
+// 512-byte inbox, which a long location name could otherwise overflow.
+var PHONE_ONLY_KEYS = [
+  'LocationQuery', 'Lat', 'Long', 'APIKEY_User', 'WeatherProv',
+  'WeatherUnit', 'RainUnit', 'PressureUnit', 'WindUnit'
+];
+
+Pebble.addEventListener('showConfiguration', function(e) {
+  Pebble.openURL(clay.generateUrl());
+});
 
 var xhrRequest = function (url, type, callback) {
   var xhr = new XMLHttpRequest();
@@ -497,24 +513,36 @@ var xhrRequest = function (url, type, callback) {
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
+// Hours and minutes of `date` as a clock at the forecast location would show them.
+// utcOffsetSec is the location's offset from UTC in seconds (from the weather
+// provider); if it's unknown, the phone's own timezone is used.
+function clockAt(date, utcOffsetSec) {
+  if (typeof utcOffsetSec === 'number' && !isNaN(utcOffsetSec)) {
+    var shifted = new Date(date.getTime() + utcOffsetSec * 1000);
+    return { h: shifted.getUTCHours(), m: shifted.getUTCMinutes() };
+  }
+  return { h: date.getHours(), m: date.getMinutes() };
+}
+
 // Compute suncalc / moon data for a given lat/lon and return a plain object
 // with all the fields that every weather provider needs to include.
-function computeSuncalc(lat, lon) {
+// Sunrise/sunset are given in the location's local time when utcOffsetSec is known.
+function computeSuncalc(lat, lon, utcOffsetSec) {
   var d = new Date();
   var sunTimes = SunCalc.getTimes(d, lat, lon);
 
-  var sunsetStrhr  = ('0' + sunTimes.sunset.getHours()).substr(-2);
-  var sunsetStrmin = ('0' + sunTimes.sunset.getMinutes()).substr(-2);
-  var sunriseStrhr  = ('0' + sunTimes.sunrise.getHours()).substr(-2);
-  var sunriseStrmin = ('0' + sunTimes.sunrise.getMinutes()).substr(-2);
+  var set  = clockAt(sunTimes.sunset,  utcOffsetSec);
+  var rise = clockAt(sunTimes.sunrise, utcOffsetSec);
 
-  var sunsetStr  = sunsetStrhr  + ':' + sunsetStrmin;
-  var sunriseStr = sunriseStrhr + ':' + sunriseStrmin;
+  var sunsetStrmin  = ('0' + set.m).substr(-2);
+  var sunriseStrmin = ('0' + rise.m).substr(-2);
 
-  var sunsetHr12  = parseInt(sunTimes.sunset.getHours());
-  var sunriseHr12 = parseInt(sunTimes.sunrise.getHours());
-  var sunsetStr12h  = (sunsetHr12  > 12 ? sunsetHr12  - 12 : sunsetHr12)  + ':' + sunsetStrmin;
-  var sunriseStr12h = (sunriseHr12 > 12 ? sunriseHr12 - 12 : sunriseHr12) + ':' + sunriseStrmin;
+  var sunsetStr  = ('0' + set.h).substr(-2)  + ':' + sunsetStrmin;
+  var sunriseStr = ('0' + rise.h).substr(-2) + ':' + sunriseStrmin;
+
+  // 12h: 0 -> 12, 13 -> 1 (no leading zero)
+  var sunsetStr12h  = (set.h % 12 || 12)  + ':' + sunsetStrmin;
+  var sunriseStr12h = (rise.h % 12 || 12) + ':' + sunriseStrmin;
 
   var moonmetrics = SunCalc.getMoonIllumination(d);
   var moonphase   = clampMoon(Math.round(moonmetrics.phase * 28));
@@ -571,10 +599,14 @@ function fetchWeather(lat, lon) {
   // 2. Main weather provider
   if (weatherprov === 'ds') {
     // ── Open-Meteo ──────────────────────────────────────────────────────────
-    // past_days=1 means hourly[0] = midnight yesterday.
-    // Current hour index = today.getHours() + 24
-    // Next hour index    = today.getHours() + 25
-    // 3 hours ago index  = today.getHours() + 24 - 3
+    // timezone=auto: hourly/daily data is laid out in the forecast location's
+    // own local days (GPS or a location picked in settings), so "today" and
+    // "next hour" mean the same there as they would on a local clock.
+    // past_days=1 + forecast_days=2: yesterday, today and tomorrow, so the
+    // next hour and the 3-hours-ago values always exist, even just after
+    // midnight or late in the evening.
+    // The current hour/day are looked up from the returned timestamps
+    // (timeformat=unixtime), so the phone's own timezone doesn't matter.
     var urlds = "https://api.open-meteo.com/v1/forecast?" +
       "latitude=" + lat + "&longitude=" + lon +
       "&hourly=uv_index,precipitation,precipitation_probability,surface_pressure" +
@@ -584,18 +616,32 @@ function fetchWeather(lat, lon) {
              "precipitation_probability_max,precipitation_sum,precipitation_probability_min,precipitation_probability_mean" +
       "&current=temperature_2m,precipitation,uv_index,weather_code,surface_pressure," +
                "wind_speed_10m,wind_direction_10m,is_day" +
-      "&past_days=1&forecast_days=1" +
-      "&timeformat=unixtime&wind_speed_unit=ms";  //&timezone=auto
+      "&past_days=1&forecast_days=2" +
+      "&timeformat=unixtime&timezone=auto&wind_speed_unit=ms";
 
     console.log("DSUrl= " + urlds);
     xhrRequest(encodeURI(urlds), 'GET', function(responseText) {
       var json = JSON.parse(responseText);
 
-      // Hourly index helpers
-      var today = new Date();
-      var currentHourIdx = today.getHours() + 24; // past_days=1 shifts array by 24
-      var nextHourIdx    = currentHourIdx + 1;
-      var past3HourIdx   = currentHourIdx - 3;
+      // Sunrise/sunset in the forecast location's own local time
+      sc = computeSuncalc(lat, lon, json.utc_offset_seconds);
+      console.log("suncalc (location time): sunset=" + sc.sunsetStr + " sunrise=" + sc.sunriseStr);
+
+      // Index helpers: the entry whose start time is the latest one at or before now
+      var nowSec = Math.floor(Date.now() / 1000);
+      var indexAtOrBefore = function(times, fallback) {
+        if (!times || !times.length) return fallback;
+        var idx = 0;
+        for (var t = 0; t < times.length; t++) {
+          if (times[t] <= nowSec) idx = t; else break;
+        }
+        return idx;
+      };
+      var currentHourIdx = indexAtOrBefore(json.hourly && json.hourly.time, 24);
+      var nextHourIdx    = Math.min(currentHourIdx + 1, json.hourly.time.length - 1);
+      var past3HourIdx   = Math.max(currentHourIdx - 3, 0);
+      var dayIdx         = indexAtOrBefore(json.daily && json.daily.time, 1);  // the location's today
+      console.log("DS timezone=" + json.timezone + " hourIdx=" + currentHourIdx + " dayIdx=" + dayIdx);
 
       // Temperature
       var tempf = Math.round((json.current.temperature_2m * 9/5) + 32);
@@ -607,8 +653,8 @@ function fetchWeather(lat, lon) {
       var icon_ds = safeDsIconId(String(json.current.weather_code) + ',' + String(json.current.is_day));
 
       // Sunrise / sunset from API (for HourSunrise/HourSunset integer fields)
-      var sunriseds = new Date(json.daily.sunrise[1] * 1000);
-      var sunsetds  = new Date(json.daily.sunset[1]  * 1000);
+      var sunriseds = new Date(json.daily.sunrise[dayIdx] * 1000);
+      var sunsetds  = new Date(json.daily.sunset[dayIdx]  * 1000);
       var sunriseds_int = sunriseds.getHours() * 100 + sunriseds.getMinutes();
       var sunsetds_int  = sunsetds.getHours()  * 100 + sunsetds.getMinutes();
 
@@ -621,37 +667,37 @@ function fetchWeather(lat, lon) {
       var winddir_num = safeWindId(String(json.current.wind_direction_10m));
 
       // Forecast
-      var forecast_icon_ds = safeDsIconId(String(json.daily.weather_code[1]) + ',1');
-      var fhighf = Math.round((json.daily.temperature_2m_max[1] * 9/5) + 32);
-      var flowf  = Math.round((json.daily.temperature_2m_min[1] * 9/5) + 32);
-      var fhighc = Math.round(json.daily.temperature_2m_max[1]);
-      var flowc  = Math.round(json.daily.temperature_2m_min[1]);
+      var forecast_icon_ds = safeDsIconId(String(json.daily.weather_code[dayIdx]) + ',1');
+      var fhighf = Math.round((json.daily.temperature_2m_max[dayIdx] * 9/5) + 32);
+      var flowf  = Math.round((json.daily.temperature_2m_min[dayIdx] * 9/5) + 32);
+      var fhighc = Math.round(json.daily.temperature_2m_max[dayIdx]);
+      var flowc  = Math.round(json.daily.temperature_2m_min[dayIdx]);
       var highds    = String(temptousewu(units, fhighf, fhighc));
       var lowds     = String(temptousewu(units, flowf,  flowc));
       var highlowds = highds + '|' + lowds + '\xB0';
 
       // Forecast wind
-      var fwindkts = Math.round(json.daily.wind_speed_10m_mean[1] * 1.9438444924574);
-      var fwindkph = Math.round(json.daily.wind_speed_10m_mean[1] * 3.6);
-      var fwindms  = Math.round(json.daily.wind_speed_10m_mean[1]);
-      var fwindmph = Math.round(json.daily.wind_speed_10m_mean[1] * 2.2369362920544);
+      var fwindkts = Math.round(json.daily.wind_speed_10m_mean[dayIdx] * 1.9438444924574);
+      var fwindkph = Math.round(json.daily.wind_speed_10m_mean[dayIdx] * 3.6);
+      var fwindms  = Math.round(json.daily.wind_speed_10m_mean[dayIdx]);
+      var fwindmph = Math.round(json.daily.wind_speed_10m_mean[dayIdx] * 2.2369362920544);
       var forecast_ave_wind_ds = String(windtousewu(windunits, fwindkph, fwindmph, fwindms, fwindkts));
-      var forecast_wind_dir_num = safeWindId(String(json.daily.wind_direction_10m_dominant[1]));
+      var forecast_wind_dir_num = safeWindId(String(json.daily.wind_direction_10m_dominant[dayIdx]));
 
       // Timestamp
       var auxtimeds = new Date(json.current.time * 1000);
       var dstime    = auxtimeds.getHours() * 100 + auxtimeds.getMinutes();
 
       // UV
-      var uv_index_max_ds       = Math.min(Math.round(json.daily.uv_index_max[1]), 10);
-      var uv_index_day_ds       = Math.round(json.daily.uv_index_max[1]);
+      var uv_index_max_ds       = Math.min(Math.round(json.daily.uv_index_max[dayIdx]), 10);
+      var uv_index_day_ds       = Math.round(json.daily.uv_index_max[dayIdx]);
       var uv_index_next_hour_ds = Math.min(Math.round(json.hourly.uv_index[nextHourIdx]), 10);
 
       // Rain daily
-      var rain_max_forecast_ds     = Math.round(json.daily.precipitation_probability_max[1]);
-      var rain_min_forecast_ds     = Math.round(json.daily.precipitation_probability_min[1]);
-      var rain_daily_amt_mm_ds     = Math.round(json.daily.precipitation_sum[1] * 10);
-      var rain_daily_amt_inches_ds = Math.round(json.daily.precipitation_sum[1] / 25.4 * 10);
+      var rain_max_forecast_ds     = Math.round(json.daily.precipitation_probability_max[dayIdx]);
+      var rain_min_forecast_ds     = Math.round(json.daily.precipitation_probability_min[dayIdx]);
+      var rain_daily_amt_mm_ds     = Math.round(json.daily.precipitation_sum[dayIdx] * 10);
+      var rain_daily_amt_inches_ds = Math.round(json.daily.precipitation_sum[dayIdx] / 25.4 * 10);
       var rainfore_ds = raintouse(rainunits, rain_daily_amt_mm_ds, rain_daily_amt_inches_ds);
 
       // Rain next hour
@@ -680,11 +726,11 @@ function fetchWeather(lat, lon) {
       var pressurenow_ds = parseInt(1000 * pressuretouse(pressureunits, pressurenowmb, pressurenowhg, pressurenowtor, pressurenowap, pressurenowatm));
 
       // Daily mean pressure – use daily field (unaffected by past_days)
-      var pressuremeanmb  = Math.round(json.daily.surface_pressure_mean[1]);
-      var pressuremeanhg  = Math.round(json.daily.surface_pressure_mean[1] / 33.8639 * 10) / 10;
-      var pressuremeantor = Math.round(json.daily.surface_pressure_mean[1] / 1.333);
-      var pressuremeanap  = Math.round(json.daily.surface_pressure_mean[1] * 100);
-      var pressuremeanatm = Math.round(json.daily.surface_pressure_mean[1] / 1013 * 1000) / 1000;
+      var pressuremeanmb  = Math.round(json.daily.surface_pressure_mean[dayIdx]);
+      var pressuremeanhg  = Math.round(json.daily.surface_pressure_mean[dayIdx] / 33.8639 * 10) / 10;
+      var pressuremeantor = Math.round(json.daily.surface_pressure_mean[dayIdx] / 1.333);
+      var pressuremeanap  = Math.round(json.daily.surface_pressure_mean[dayIdx] * 100);
+      var pressuremeanatm = Math.round(json.daily.surface_pressure_mean[dayIdx] / 1013 * 1000) / 1000;
       var pressuremean_ds = parseInt(1000 * pressuretouse(pressureunits, pressuremeanmb, pressuremeanhg, pressuremeantor, pressuremeanap, pressuremeanatm));
 
       console.log("DS temp=" + tempc);
@@ -749,6 +795,10 @@ function fetchWeather(lat, lon) {
     xhrRequest(encodeURI(urlOWM), 'GET', function(responseText) {
       var json = JSON.parse(responseText);
 
+      // Sunrise/sunset in the forecast location's own local time
+      sc = computeSuncalc(lat, lon, json.timezone_offset);
+      console.log("suncalc (location time): sunset=" + sc.sunsetStr + " sunrise=" + sc.sunriseStr);
+
       // Temperature
       var tempf = Math.round((json.current.temp * 1.8) - 459.67);
       var tempc = Math.round(json.current.temp - 273.15);
@@ -811,8 +861,8 @@ function fetchWeather(lat, lon) {
       // Rain daily
       var rain_max_forecast_owm     = Math.round(json.daily[0].pop * 100);
       var rain_min_forecast_owm     = Math.round(0);
-      var rain_daily_amt_mm_owm     = Math.round(json.daily[0].rain * 10);
-      var rain_daily_amt_inches_owm = Math.round(json.daily[0].rain * 10 / 25.4);
+      var rain_daily_amt_mm_owm     = Math.round((json.daily[0].rain || 0) * 10);       // 'rain' is absent on dry days
+      var rain_daily_amt_inches_owm = Math.round((json.daily[0].rain || 0) * 10 / 25.4);
       var rainfore_owm = raintouse(rainunits, rain_daily_amt_mm_owm, rain_daily_amt_inches_owm);
 
       // Rain next hour
@@ -1072,7 +1122,19 @@ Pebble.addEventListener('appmessage', function(e) {
 });
  
 Pebble.addEventListener('webviewclosed', function(e) {
+  if (!e || !e.response) return;   // closed without saving
   console.log("Config closed, updating!");
+
+  // Clay saves everything to localStorage ('clay-settings') and returns the
+  // settings keyed by message key, ready to send.
+  var dict = clay.getSettings(e.response);
+  PHONE_ONLY_KEYS.forEach(function(name) {
+    delete dict[messageKeys[name]];
+  });
+  Pebble.sendAppMessage(dict,
+    function() { console.log("Settings sent to watch."); },
+    function(err) { console.log("Settings send failed: " + JSON.stringify(err)); });
+
   // Config changed - force a fresh fetch even if guard is set.
   isFetching = false;
   var cfg = JSON.parse(localStorage.getItem('clay-settings')) || {};

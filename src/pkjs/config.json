@@ -155,13 +155,6 @@
         ]
       },
       {
-        "type": "toggle",
-        "messageKey": "ShakeWeather",
-        "label": "More weather on shake",
-        "description": "Shake the watch (and shake again) for more weather",
-        "defaultValue": true
-      },
-      {
         "type": "input",
         "messageKey": "LogoText",
         "defaultValue": "HYBRID",
@@ -305,6 +298,22 @@
             "value": 2
           }
         ]
+      },
+      {
+        "type": "toggle",
+        "messageKey": "ShakeWeather",
+        "label": "More weather on shake",
+        "description": "Shake the watch (and shake again) for 2 more weather screens",
+         "capabilities": ["NOT_PLATFORM_APLITE"],
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "messageKey": "ShakeWeather",
+        "label": "More weather on shake",
+        "description": "Shake the watch for more weather info",
+         "capabilities": ["PLATFORM_APLITE"],
+        "defaultValue": true
       }
     ]
   },
@@ -366,7 +375,8 @@
       },
       {
         "type": "heading",
-        "defaultValue": "Custom Colours"
+        "defaultValue": "Custom Colours",
+        "id": "CUSTOM_COLOURS_HEADING"
       },
       {
         "type": "color",
@@ -508,7 +518,8 @@
       },
       {
         "type": "heading",
-        "defaultValue": "Custom Colours"
+        "defaultValue": "Custom Colours",
+        "id": "BW_CUSTOM_COLOURS_HEADING"
       },
       {
         "type": "color",
@@ -614,7 +625,8 @@
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Weather settings"
+        "defaultValue": "Weather settings",
+        "id": "WEATHER_HEADING"
       },
       {
         "type": "select",
@@ -634,20 +646,27 @@
       },
       {
         "type": "input",
-        "messageKey": "Lat",
-        "label": "Manual Location - Latitude",
+        "messageKey": "LocationQuery",
+        "label": "Location",
+        "description": "Start typing a city, place name or postcode/zipcode, then pick from the list. Leave blank to use your phone's GPS location for weather and sunrise & sunset times. Location search data from ©OpenStreetMap (Photon) and GeoNames (Open-Meteo)",
         "attributes": {
-          "placeholder": "eg: 51.4769 (leave blank to use GPS)"
+          "placeholder": "e.g. London, UK (leave empty to use GPS)"
         }
       },
       {
         "type": "input",
+        "messageKey": "Lat",
+        "defaultValue": ""
+      },
+      {
+        "type": "input",
         "messageKey": "Long",
-        "label": "Manual Location - Longitude",
-        "description": "Leave both blank to use GPS location for sunrise & sunset times and weather. You can use <a href =https://www.google.com/maps>Google Maps</a> or <a href =https://www.openstreetmap.org/>OpenStreetMap</a> to find latitude & longitude.",
-        "attributes": {
-          "placeholder": "eg: -0.0005 (leave blank to use GPS)"
-        }
+        "defaultValue": ""
+      },
+      {
+        "type": "text",
+        "id": "LOCATION_DEBUG",
+        "defaultValue": ""
       },
       {
         "type": "input",
@@ -754,6 +773,7 @@
   },
   {
     "type": "submit",
-    "defaultValue": "Save"
+    "defaultValue": "Save",
+    "id": "WEATHER_SAVE"
   }
 ]

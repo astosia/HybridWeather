@@ -1,7 +1,7 @@
 #pragma once
 #include <pebble.h>
 
-#define SETTINGS_KEY 1115
+#define SETTINGS_KEY 1225
 #define LOGO_TEXT_KEY 1116        // custom texts are stored separately from ClaySettings
 #define LOGO_TEXT_RIGHT_KEY 1117
 

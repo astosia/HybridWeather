@@ -496,7 +496,57 @@ var PHONE_ONLY_KEYS = [
   'PreviewPlatformOverride', 'PreviewTimeFormatOverride'   // only change the preview on the settings page
 ];
 
+// Clay builds the settings page one item at a time and stops at the first item that
+// throws, leaving the rest of the page (including the Save buttons and the preview)
+// missing. Two things can make an item throw:
+//
+//  1. A saved setting of null. Clay hands saved values straight to its text, dropdown,
+//     colour and radio items, which call value.toString() and fail on null. Removing
+//     nulls makes Clay fall back to the item's defaultValue instead.
+function cleanStoredSettings() {
+  var cfg;
+  try {
+    cfg = JSON.parse(localStorage.getItem('clay-settings'));
+  } catch (err) {
+    return;   // unreadable: Clay ignores it and uses the defaults
+  }
+  if (!cfg || typeof cfg !== 'object') return;
+  var removed = [];
+  Object.keys(cfg).forEach(function(key) {
+    if (cfg[key] === null) {
+      delete cfg[key];
+      removed.push(key);
+    }
+  });
+  if (removed.length) {
+    localStorage.setItem('clay-settings', JSON.stringify(cfg));
+    console.log('Removed empty saved settings: ' + removed.join(', '));
+  }
+}
+
+//  2. Missing watch details. Items with "capabilities" need the watch's platform and
+//     firmware. Clay only reads them when the phone's 'ready' event fires, which can be
+//     before the watch is connected, so they're read again here as the page opens.
+function refreshWatchInfo() {
+  var info = null;
+  try {
+    info = Pebble.getActiveWatchInfo && Pebble.getActiveWatchInfo();
+  } catch (err) { /* older phone apps */ }
+  if (info) clay.meta.activeWatchInfo = info;
+
+  var wi = clay.meta.activeWatchInfo;
+  if (!wi) {
+    // Still unknown: assume a colour watch so the page builds and can be saved.
+    // "Preview watch model" at the top of the page corrects the preview.
+    wi = clay.meta.activeWatchInfo = { platform: 'basalt', model: 'unknown', language: 'en_US' };
+    console.log('Watch details unavailable; settings page assumes a colour watch');
+  }
+  if (!wi.firmware) wi.firmware = { major: 4, minor: 3, patch: 0, suffix: '' };
+}
+
 Pebble.addEventListener('showConfiguration', function(e) {
+  cleanStoredSettings();
+  refreshWatchInfo();
   Pebble.openURL(clay.generateUrl());
 });
 

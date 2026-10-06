@@ -343,7 +343,7 @@
         "step": 15
       },
       {
-        "type": "radiogroup",
+        "type": "select",
         "messageKey": "VibeMode",
         "label": "Vibrate on Bluetooth Disconnect",
         "defaultValue": 0,
